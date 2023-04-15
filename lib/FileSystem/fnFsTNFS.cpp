@@ -150,22 +150,7 @@ bool FileSystemTNFS::dir_open(const char * path, const char *pattern, uint16_t d
 
     if(TNFS_RESULT_SUCCESS == tnfs_opendirx(&_mountinfo, path, s_opt, d_opt, pattern, 0))
     {
-        // Save the directory for later use, making sure it starts and ends with '/''
-        if(path[0] != '/')
-        {
-            _current_dirpath[0] = '/';
-            strlcpy(_current_dirpath + 1, path, sizeof(_current_dirpath)-1);
-        } 
-        else
-        {
-            strlcpy(_current_dirpath, path, sizeof(_current_dirpath));
-        }
-        int l = strlen(_current_dirpath);
-        if((l > 0) && (l < sizeof(_current_dirpath) -2) && (_current_dirpath[l -1] != '/'))
-        {
-            _current_dirpath[l] = '/';
-            _current_dirpath[l+1] = '\0';
-        }
+        set_current_dirpath(path);
 
         return true;
     }

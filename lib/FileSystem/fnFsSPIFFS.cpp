@@ -31,6 +31,7 @@ bool FileSystemSPIFFS::dir_open(const char * path, const char * pattern, uint16_
     // We ignore sorting options since we don't expect user browsing on SPIFFS
     char * fpath = _make_fullpath(path);
     _dir = opendir(fpath);
+    set_current_dirpath(path);
     free(fpath);
     return(_dir != nullptr);
 }

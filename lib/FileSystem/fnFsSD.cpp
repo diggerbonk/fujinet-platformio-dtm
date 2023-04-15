@@ -119,6 +119,8 @@ bool FileSystemSDFAT::dir_open(const char * path, const char * pattern, uint16_t
     if(result != FR_OK)
         return false;
 
+    set_current_dirpath(path);
+
     bool have_pattern = pattern != nullptr && pattern[0] != '\0';
 
     // Read all the directory entries and store them

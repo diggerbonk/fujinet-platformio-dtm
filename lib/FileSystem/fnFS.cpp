@@ -7,6 +7,25 @@
 
 // #include "../../include/debug.h"
 
+void FileSystem::set_current_dirpath(const char *path)
+{
+    // Save the directory for later use, making sure it starts and ends with '/''
+    if(path[0] != '/')
+    {
+        _current_dirpath[0] = '/';
+        strlcpy(_current_dirpath + 1, path, sizeof(_current_dirpath)-1);
+    }
+    else
+    {
+        strlcpy(_current_dirpath, path, sizeof(_current_dirpath));
+    }
+    int l = strlen(_current_dirpath);
+    if((l > 0) && (l < sizeof(_current_dirpath) -2) && (_current_dirpath[l -1] != '/'))
+    {
+        _current_dirpath[l] = '/';
+        _current_dirpath[l+1] = '\0';
+    }
+}
 
 char * FileSystem::_make_fullpath(const char *path)
 {

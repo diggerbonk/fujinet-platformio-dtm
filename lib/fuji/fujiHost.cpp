@@ -249,6 +249,11 @@ const char *fujiHost::get_hostname()
     return get_hostname(NULL, 0);
 }
 
+const char *fujiHost::get_current_directory()
+{
+    return _fs->get_current_dirpath();
+}
+
 /* Returns pointer to current hostname and, if provided, fills buffer with that string
 */
 const char *fujiHost::get_prefix(char *buffer, size_t buffersize)
