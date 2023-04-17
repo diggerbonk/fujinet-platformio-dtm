@@ -884,8 +884,6 @@ void sioFuji::sio_open_directory()
     if (_fnHosts[hostSlot].dir_open(dirpath, pattern, 0))
     {
         _current_open_directory_slot = hostSlot;
-
-        if (doMenu) sio_open_menu();
     }
     else
         sio_error();
@@ -1719,35 +1717,24 @@ void sioFuji::sio_process(uint32_t commanddata, uint8_t checksum)
         sio_ack();
         sio_open_directory();
         break;
-    case FUJICMD_READ_MENU_ENTRY:
+    case FUJICMD_OPEN_MENU:
         sio_ack();
-        sio_read_menu_entry();
+        sio_open_menu();
         break;
     case FUJICMD_READ_DIR_ENTRY:
         sio_ack();
         if (_fnMenu.get_initialized()) sio_read_menu_entry();
         else sio_read_directory_entry();
         break;
-    case FUJICMD_CLOSE_MENU:
-        sio_ack();
-        sio_close_menu();
-        break;
     case FUJICMD_CLOSE_DIRECTORY:
         sio_ack();
         sio_close_directory();
-        break;
-    case FUJICMD_GET_MENU_POSITION:
-        sio_ack();
-        sio_get_menu_position();
+        if (_fnMenu.get_initialized()) sio_close_menu();
         break;
     case FUJICMD_GET_DIRECTORY_POSITION:
         sio_ack();
         if (_fnMenu.get_initialized()) sio_get_menu_position();
         else sio_get_directory_position();
-        break;
-    case FUJICMD_SET_MENU_POSITION:
-        sio_ack();
-        sio_set_menu_position();
         break;
     case FUJICMD_SET_DIRECTORY_POSITION:
         sio_ack();
