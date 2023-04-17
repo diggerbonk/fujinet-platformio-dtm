@@ -66,7 +66,7 @@ bool fujiMenu::set_pos(uint16_t newPos)
     }
 }
 
-int8_t fujiMenu::asciiToHexval(char a, char b)
+int8_t fujiMenu::asciiToHexval(char a)
 {
     if (a > 47 && a < 58) return a - 48;
     else if (a > 47 && a < 71) return a - 55;
@@ -81,30 +81,12 @@ menu_entry_t * fujiMenu::get_current_menu_entry()
 
     if (fgets(tempBuf, MAX_MENU_LINE, _menu_file)) 
     {
-        if (tempBuf[2] == "|" && asciiToHexval(tempBuf[0]) > 0 && asciiToHexval(tempBuf[1] > 0)) {
-            _current_menu_line.type = asciiToHexval(tempBuf[0])jjjj
+        if (tempBuf[2] == '|' && asciiToHexval(tempBuf[0]) > 0 && asciiToHexval(tempBuf[1] > 0)) {
+            _current_menu_entry.type = asciiToHexval(tempBuf[0]);
         }
+        // TODO: parse reset of line
        
-        int len = strcspn(tempBuf, "|");
-        if (l
-
-        if (tok == NULL) return nullptr;
-        else {
-            strncpy(_current_menu_line.type, tok);
-        }
-         
-        tok = strtok(NULL, ",");
-        if (tok == NULL) return nullptr;
-        else {
-            strncpy(_current_menu_line.name, tok, MAX_MENU_NAME_LEN);
-        }
-
-        tok = strtok(NULL, ",");
-        if (tok == NULL) return nullptr;
-        else {
-            strncpy(_current_menu_line.resource, tok, MAX_MENU_RESOURCE_LEN);
-        }
-        return & _current_menu_line;
+        return & _current_menu_entry;
     }
     else return nullptr;
 }
