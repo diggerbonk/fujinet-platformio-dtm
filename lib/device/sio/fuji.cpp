@@ -884,6 +884,7 @@ void sioFuji::sio_open_directory()
     if (_fnHosts[hostSlot].dir_open(dirpath, pattern, 0))
     {
         _current_open_directory_slot = hostSlot;
+        sio_complete();
     }
     else
         sio_error();
@@ -944,7 +945,6 @@ void sioFuji::sio_read_menu_entry()
 
 void sioFuji::sio_read_directory_entry()
 {
-    // TODO (TRENT) read a line from "tnfs.menu" if it exists
     uint8_t maxlen = cmdFrame.aux1;
     Debug_printf("Fuji cmd: READ DIRECTORY ENTRY (max=%hu)\n", maxlen);
 
@@ -1027,7 +1027,6 @@ void sioFuji::sio_get_directory_position()
         return;
     }
 
-
     uint16_t pos = _fnHosts[_current_open_directory_slot].dir_tell();
     if (pos == FNFS_INVALID_DIRPOS)
     {
@@ -1079,6 +1078,7 @@ void sioFuji::sio_set_directory_position()
 
 void sioFuji::sio_close_menu()
 {
+    _fnMenu.release();
 }
 
 void sioFuji::sio_close_directory()
@@ -1088,7 +1088,6 @@ void sioFuji::sio_close_directory()
     if (_current_open_directory_slot != -1)
         _fnHosts[_current_open_directory_slot].dir_close();
 
-    _fnMenu.release();
     _current_open_directory_slot = -1;
     sio_complete();
 }
