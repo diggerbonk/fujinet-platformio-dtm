@@ -47,8 +47,6 @@ public:
     const char* get_hostname(char *buffer, size_t buffersize);
     const char* get_hostname();
 
-    const char* get_current_directory();
-
     bool mount();
     bool umount();
 
