@@ -19,6 +19,14 @@ bool fujiMenu::init(const char *path, FILE * mf)
     char buf[256];
     size_t len = 0;
 
+    if (_line_offsets != nullptr) 
+    {
+        free(_line_offsets);
+        _line_offsets = nullptr;
+    }
+
+    _line_offsets = (uint16_t*)malloc(MAX_MENU_LINES*2);
+
     strlcpy(_path, path, sizeof(_path)); 
 
     _menu_file = mf;
@@ -26,7 +34,7 @@ bool fujiMenu::init(const char *path, FILE * mf)
     // walk through file, get each newline position
  
     _num_lines = 1;
-    _line_offsets[0] = 0;
+ 
     _menu_size = 0;
     while (fgets(buf, bufferlen, _menu_file)) {
         _menu_size += strlen(buf);

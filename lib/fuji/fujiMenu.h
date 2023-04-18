@@ -28,7 +28,7 @@ private:
     FILE * _menu_file = nullptr;
     bool _initialized;
     char _path[MAX_PATHLEN] = { '\0' };
-    uint16_t _line_offsets[MAX_MENU_LINES];
+    uint16_t * _line_offsets;
     uint16_t _num_lines = 0;
     uint16_t _menu_size = 0;
     uint16_t _current_offset = 0;
