@@ -42,7 +42,6 @@ protected:
     char _basepath[20] = { '\0' };
     bool _started = false;
     fsdir_entry _direntry;
-    char _current_dirpath[MAX_PATHLEN];
 
     char *_make_fullpath(const char *path);
 
@@ -54,8 +53,6 @@ public:
 
     virtual bool running() { return _started; };
     virtual const char * basepath() { return _basepath; };
-    virtual const char * get_current_dirpath() { return _current_dirpath; };
-    void set_current_dirpath(const char*);
     
     virtual fsType type()=0;
     virtual const char *typestring()=0;
