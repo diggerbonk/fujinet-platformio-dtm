@@ -11,7 +11,6 @@
 #include "fujiHost.h"
 #include "fujiDisk.h"
 #include "fujiCmd.h"
-#include "fujiMenu.h"
 
 #define MAX_HOSTS 8
 #define MAX_DISK_DEVICES 8
@@ -62,8 +61,6 @@ private:
 
     fujiDisk _fnDisks[MAX_DISK_DEVICES];
 
-    fujiMenu _fnMenu;
-
     sioCassette _cassetteDev;
 
     int _current_open_directory_slot = -1;
@@ -86,9 +83,7 @@ protected:
     void sio_mount_host();             // 0xF9
     void sio_disk_image_mount();       // 0xF8
     void sio_open_directory();         // 0xF7
-    void sio_read_menu_entry();        // 0xF6 (alt. handler for sio_read_directory_entry)
     void sio_read_directory_entry();   // 0xF6
-    void sio_close_menu();             // 0x
     void sio_close_directory();        // 0xF5
     void sio_read_host_slots();        // 0xF4
     void sio_write_host_slots();       // 0xF3
@@ -100,9 +95,7 @@ protected:
     void sio_get_adapter_config();     // 0xE8
     void sio_new_disk();               // 0xE7
     void sio_unmount_host();           // 0xE6
-    void sio_get_menu_position();      // 0xE5 (alt handler for sio_get_directory_position)
     void sio_get_directory_position(); // 0xE5
-    void sio_set_menu_position();      // 0xE4 (alt handler for sio_set_directory_position)
     void sio_set_directory_position(); // 0xE4
     void sio_set_hsio_index();         // 0xE3
     void sio_set_device_filename();    // 0xE2
@@ -117,7 +110,6 @@ protected:
     void sio_set_boot_config();        // 0xD9
     void sio_copy_file();              // 0xD8
     void sio_set_boot_mode();          // 0xD6
-    void sio_open_menu();              // 0xD0
 
     void sio_status() override;
     void sio_process(uint32_t commanddata, uint8_t checksum) override;

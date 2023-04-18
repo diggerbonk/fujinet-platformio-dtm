@@ -2,6 +2,7 @@
 #define _FUJI_HOST_
 
 #include "fnFS.h"
+#include "fujiMenu.h"
 
 #define MAX_HOSTNAME_LEN 32
 #define MAX_HOST_PREFIX_LEN 256
@@ -19,6 +20,8 @@ private:
     const char * _sdhostname = "SD";
     FileSystem *_fs = nullptr;
     fujiHostType _type;
+    fujiMenu _menu;
+
     char _hostname[MAX_HOSTNAME_LEN] = { '\0' };
     char _prefix[MAX_HOST_PREFIX_LEN] = { '\0' };
 
@@ -60,7 +63,7 @@ public:
     long file_size(FILE *filehandle);
 
     // Directory functions
-    bool dir_open(const char *path, const char *pattern, uint16_t options = 0);
+    bool dir_open(const char *path, const char *pattern, uint16_t options = 0, bool usefujimenu = false);
     void dir_close();
     fsdir_entry_t * dir_nextfile();
     uint16_t dir_tell();

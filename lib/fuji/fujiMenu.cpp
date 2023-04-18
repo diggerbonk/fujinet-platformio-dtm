@@ -12,7 +12,7 @@
 
 #include "utils.h"
 
-bool fujiMenu::init(const char *path, fujiHost * fh)
+bool fujiMenu::init(const char *path, FILE * mf)
 {
     ssize_t read;
     const int bufferlen = 256;
@@ -21,14 +21,7 @@ bool fujiMenu::init(const char *path, fujiHost * fh)
 
     strlcpy(_path, path, sizeof(_path)); 
 
-    // TODO: (TRENT) Open & scan menu file and mark 
-
-    if (fh == nullptr)
-        return false;
-
-    Debug_printf("fujiMenu opening file path \"%s\"\n", path);
-
-    _menu_file = fh->file_open(path, nullptr, 0, "r+");
+    _menu_file = mf;
 
     // walk through file, get each newline position
  
@@ -66,27 +59,19 @@ bool fujiMenu::set_pos(uint16_t newPos)
     }
 }
 
-int8_t fujiMenu::asciiToHexval(char a)
-{
-    if (a > 47 && a < 58) return a - 48;
-    else if (a > 47 && a < 71) return a - 55;
-    else if (a > 96 && a < 103) return a - 87;
-    else return -1;
-} 
-
-menu_entry_t * fujiMenu::get_current_menu_entry() 
+fsdir_entry_t * fujiMenu::get_current_menu_entry() 
 {
     char tempBuf[MAX_MENU_LINE];
     uint8_t tempType = 0;
 
     if (fgets(tempBuf, MAX_MENU_LINE, _menu_file)) 
     {
-        if (tempBuf[2] == '|' && asciiToHexval(tempBuf[0]) > 0 && asciiToHexval(tempBuf[1] > 0)) {
-            _current_menu_entry.type = asciiToHexval(tempBuf[0]);
-        }
+        //if (tempBuf[2] == '|' && asciiToHexval(tempBuf[0]) > 0 && asciiToHexval(tempBuf[1] > 0)) {
+        //    _current_menu_entry.type = asciiToHexval(tempBuf[0]);
+        //}
         // TODO: parse reset of line
        
-        return & _current_menu_entry;
+        return nullptr;
     }
     else return nullptr;
 }
