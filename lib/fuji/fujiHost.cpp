@@ -160,13 +160,11 @@ bool fujiHost::dir_open(const char *path, const char *pattern, uint16_t options,
         break;
     }
 
-    _menu.release();
     if (usefujimenu) {
-        strlcat(realpath, "tnfs.menu", 256);
-        if (file_exists(realpath)) {
-            FILE * mf = file_open(realpath,  nullptr, 0, "r+");
-            _menu.init(realpath, mf);
-        }
+        if (strlen(realpath) > 1) strlcat(realpath, "/tnfs.menu", 256);
+        else strlcat(realpath, "tnfs.menu", 256);
+        FILE * mf = _fs->file_open(realpath, "r");
+        if (mf) _menu.init(realpath, mf);
     }
  
     return result;
@@ -180,7 +178,7 @@ fsdir_entry_t *fujiHost::dir_nextfile()
     {
     case HOSTTYPE_LOCAL:
     case HOSTTYPE_TNFS:
-        if (_menu.get_initialized()) return _menu.get_current_menu_entry();
+        if (_menu.get_initialized()) return _menu.get_next_menu_entry();
         else return _fs->dir_read();
     case HOSTTYPE_UNINITIALIZED:
         break;
@@ -191,6 +189,7 @@ fsdir_entry_t *fujiHost::dir_nextfile()
 
 void fujiHost::dir_close()
 {
+    _menu.release();
     if (_type != HOSTTYPE_UNINITIALIZED && _fs != nullptr)
         _fs->dir_close();
 }

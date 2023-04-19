@@ -6,7 +6,7 @@
 
 #define MAX_MENU_SIZE 65535
 #define MAX_MENU_LINE 256
-#define MAX_MENU_LINES 16384
+#define MAX_MENU_LINES 4096
 #define MAX_MENU_NAME_LEN 40
 #define MAX_MENU_RESOURCE_LEN 256
 
@@ -26,25 +26,21 @@ class fujiMenu
 private:
 
     FILE * _menu_file = nullptr;
-    bool _initialized;
-    char _path[MAX_PATHLEN] = { '\0' };
-    uint16_t * _line_offsets;
-    uint16_t _num_lines = 0;
-    uint16_t _menu_size = 0;
     uint16_t _current_offset = 0;
+    uint16_t _current_pos = 0;
+    fsdir_entry _direntry;
 
 public:
 
-    fujiMenu() { _initialized = false; };
-    ~fujiMenu() { _initialized = false; };
+    fujiMenu() {};
+    ~fujiMenu() {};
 
     bool init(const char *path, FILE * mf);
-    void release() { _initialized = false; };
-    bool get_initialized() { return _initialized; };
-    const char * get_path() { return _path; };
+    void release();
+    bool get_initialized() { return (_menu_file != nullptr); };
     uint16_t get_pos() { return _current_offset; };
     bool set_pos(uint16_t newPos);
-    fsdir_entry_t * get_current_menu_entry();
+    fsdir_entry_t * get_next_menu_entry();
 };
 
 #endif // _FUJI_MENU_
