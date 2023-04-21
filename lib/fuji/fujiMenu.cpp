@@ -68,8 +68,9 @@ bool fujiMenu::set_pos(uint16_t newPos)
 
 int8_t fujiMenu::decode_menutype(const char * buf)
 {
-    if (strlen(buf) < 3) return 0;
-    return ascii_nibble_to_int8(buf[0])*16 + ascii_nibble_to_int8(buf[1]);
+    return 0;
+    //if (strlen(buf) < 3) return 0;
+    //return ascii_nibble_to_int8(buf[0])*16 + ascii_nibble_to_int8(buf[1]);
 }
 
 fsdir_entry_t * fujiMenu::get_next_menu_entry() 
