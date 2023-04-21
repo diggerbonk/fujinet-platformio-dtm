@@ -117,7 +117,7 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
             if (resourceStart <= displayStart) resourceStart = len;
         }
 
-        memcpy(_direntry.filename, &tempBuf[displayStart], resourceStart-displayStart);
+        strlcpy(_direntry.filename, &tempBuf[displayStart], resourceStart+1);
         
         return &_direntry;
     }
