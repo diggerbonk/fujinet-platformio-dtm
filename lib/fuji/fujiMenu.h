@@ -20,7 +20,6 @@
 //
 // If the line contains no type then type "00" is assumed.
 
-
 class fujiMenu
 {
 private:
