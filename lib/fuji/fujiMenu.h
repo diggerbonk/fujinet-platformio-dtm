@@ -29,6 +29,7 @@ private:
     uint16_t _current_offset = 0;
     uint16_t _current_pos = 0;
     fsdir_entry _direntry;
+    int8_t decode_menutype(const char * buf);
 
 public:
 

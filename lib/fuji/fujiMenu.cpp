@@ -66,6 +66,12 @@ bool fujiMenu::set_pos(uint16_t newPos)
     return true;
 }
 
+int8_t fujiMenu::decode_menutype(const char * buf)
+{
+    if (strlen(buf) < 3) return 0;
+    return ascii_nibble_to_int8(buf[0])*16 + ascii_nibble_to_int8(buf[1]);
+}
+
 fsdir_entry_t * fujiMenu::get_next_menu_entry() 
 {
     char tempBuf[MAX_MENU_LINE];
@@ -90,10 +96,29 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
         _direntry.size = 0;
         _direntry.modified_time = 0;
 
+        // menu format: <type>|<display>|<resource>
+        //              <display>
+
         // replace trailing newline. 
         int len = strlen(tempBuf);
         if (len>0) tempBuf[len-1] = 0;
-        strlcpy(_direntry.filename, tempBuf, MAX_MENU_NAME_LEN);
+
+        int16_t menuType = 0;
+        uint16_t displayStart = 0;
+        uint16_t resourceStart = len;
+        
+        if (len > 3 && tempBuf[2] == '|') {
+            menuType = decode_menutype(tempBuf);
+            if (menuType > 0) displayStart = 3;
+        }
+
+        if (menuType > 0) 
+        {
+            resourceStart = strcspn(&tempBuf[displayStart], "|");
+            if (resourceStart <= displayStart) resourceStart = len;
+        }
+
+        memcpy(_direntry.filename, &tempBuf[displayStart], resourceStart-displayStart);
         
         return &_direntry;
     }
