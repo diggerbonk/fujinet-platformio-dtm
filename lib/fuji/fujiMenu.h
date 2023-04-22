@@ -5,20 +5,15 @@
 #include "fnFS.h"
 
 #define MAX_MENU_SIZE 65535
-#define MAX_MENU_LINE 256
+#define MAX_MENU_LINE_LEN 256
 #define MAX_MENU_LINES 4096
-#define MAX_MENU_NAME_LEN 40
-#define MAX_MENU_RESOURCE_LEN 256
 
 //
 // Menu line format is:
 //
-//     <entry>    := <type> <display> <resource> | <STRING>
-//     <type>     := 00 | 01 | 02 | 03 "|"
-//     <display>  := <STRING> "|"
+//     <entry>    := [<type> "|"]<resource>
+//     <type>     := Hex Byte in ASCII (e.g. "0A")
 //     <resource> := <STRING>
-//
-// If the line contains no type then type "00" is assumed.
 
 class fujiMenu
 {
@@ -28,13 +23,16 @@ private:
     uint16_t _current_offset = 0;
     uint16_t _current_pos = 0;
     fsdir_entry _direntry;
+    int8_t _type = 0;
     int8_t decode_menutype(const char * buf);
+    
 
 public:
 
     fujiMenu() {};
     ~fujiMenu() {};
 
+    uint8_t get_menu_entry_type() { return _type; };
     bool init(const char *path, FILE * mf);
     void release();
     bool get_initialized() { return (_menu_file != nullptr); };
