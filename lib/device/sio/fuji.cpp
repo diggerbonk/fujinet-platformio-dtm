@@ -948,8 +948,8 @@ void sioFuji::sio_read_directory_entry()
         else if (cmdFrame.aux2 & 0x40)
         {
             current_entry[0] = _fnHosts[_current_open_directory_slot].get_menu_entry_type(); 
-            bufsize = sizeof(current_entry) - 1;
-            filenamedest = current_entry + 1;
+            filenamedest += 1;
+            bufsize -= 1;
         }
         else
         {
