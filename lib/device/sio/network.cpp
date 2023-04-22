@@ -1110,7 +1110,7 @@ void sioNetwork::sio_set_json_query()
 
     memset(in, 0, sizeof(in));
 
-    bus_to_peripheral(in, sizeof(in));
+    uint8_t ck = bus_to_peripheral(in, sizeof(in));
 
     // strip away line endings from input spec.
     for (int i = 0; i < 256; i++)
