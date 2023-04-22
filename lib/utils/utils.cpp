@@ -815,4 +815,3 @@ void util_ascii_to_petscii_str(std::string &s)
                    [](unsigned char c)
                    { return util_ascii_to_petscii(c); });
 }
-
