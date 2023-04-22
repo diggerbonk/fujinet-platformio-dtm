@@ -155,7 +155,7 @@ bool FileSystemTNFS::dir_open(const char * path, const char *pattern, uint16_t d
         {
             _current_dirpath[0] = '/';
             strlcpy(_current_dirpath + 1, path, sizeof(_current_dirpath)-1);
-        }
+        } 
         else
         {
             strlcpy(_current_dirpath, path, sizeof(_current_dirpath));
