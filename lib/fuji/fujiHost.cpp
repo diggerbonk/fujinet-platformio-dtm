@@ -397,3 +397,15 @@ bool fujiHost::umount()
     // Try unmounting TNFS
     return 0 == unmount_tnfs();
 }
+
+bool fujiHost::get_menu_initialized()
+{
+    return _menu.get_initialized();
+}
+
+uint8_t fujiHost::get_menu_entry_type()
+{
+    if (_menu.get_initialized()) return _menu.get_menu_entry_type();
+    else return 0;
+}
+
