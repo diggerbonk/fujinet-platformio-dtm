@@ -824,7 +824,6 @@ void sioFuji::sio_open_directory()
     Debug_println("Fuji cmd: OPEN DIRECTORY");
     char dirpath[256];
     uint8_t hostSlot = cmdFrame.aux1;
-    bool doMenu = (cmdFrame.aux2 > 0);
     uint8_t ck = bus_to_peripheral((uint8_t *)&dirpath, sizeof(dirpath));
 
     if (sio_checksum((uint8_t *)&dirpath, sizeof(dirpath)) != ck)
@@ -863,7 +862,7 @@ void sioFuji::sio_open_directory()
 
     Debug_printf("Opening directory: \"%s\", pattern: \"%s\"\n", dirpath, pattern ? pattern : "");
 
-    if (_fnHosts[hostSlot].dir_open(dirpath, pattern, 0, doMenu))
+    if (_fnHosts[hostSlot].dir_open(dirpath, pattern, 0, cmdFrame.aux2 & 1))
     {
         _current_open_directory_slot = hostSlot;
         sio_complete();
