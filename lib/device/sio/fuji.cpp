@@ -962,8 +962,8 @@ void sioFuji::sio_read_directory_entry()
         // Add a slash at the end of directory entries
         if (f->isDir && filelen < (bufsize - 2))
         {
-            current_entry[filelen] = '/';
-            current_entry[filelen + 1] = '\0';
+            filenamedest[filelen] = '/';
+            filenamedest[filelen + 1] = '\0';
         }
     }
 
