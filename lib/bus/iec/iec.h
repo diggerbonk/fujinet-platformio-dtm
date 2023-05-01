@@ -177,13 +177,34 @@ protected:
 
     /**
      * @brief response queue (e.g. INPUT)
+     * @deprecated remove as soon as it's out of fuji.
      */
     std::queue<std::string> response_queue;
+
+    /**
+     * @brief status override (for binary commands)
+     */
+    std::string status_override;
 
     /**
      * @brief tokenized payload
      */
     std::vector<std::string> pt;
+
+    /**
+     * @brief The status information to send back on cmd input
+     * @param bw = # of bytes waiting
+     * @param msg = most recent status message
+     * @param connected = is most recent channel connected?
+     * @param channel = channel of most recent status msg.
+     */
+    struct _iecStatus
+    {
+        uint8_t error;
+        std::string msg;
+        bool connected;
+        int channel;
+    } iecStatus;
 
     /**
      * @brief Get device ready to handle next phase of command.
@@ -207,9 +228,20 @@ protected:
     virtual device_state_t process(IECData *commanddata);
 
     /**
+     * @brief poll whether interrupt should be wiggled
+     * @param c secondary channel (0-15)
+     */
+    virtual void poll_interrupt(unsigned char c) {}
+    
+    /**
      * @brief Dump the current IEC frame to terminal.
      */
     void dumpData();
+
+    /**
+     * @brief If response queue is empty, Return 1 if ANY receive buffer has data in it, else 0
+     */
+    virtual void iec_talk_command_buffer_status();
 
     // Optional shutdown/reboot cleanup routine
     virtual void shutdown(){};
@@ -280,7 +312,7 @@ private:
     void deviceTalk();
 
     /**
-     * BUS TURNAROUND (act like listener)
+     * BUS TURNAROUND (switch from listener to talker)
      */
     bool turnAround();
 
@@ -341,30 +373,35 @@ public:
     void service();
 
     /**
+     * @brief send single byte
+     * @param c byte to send
+     * @param eoi Send EOI?
+     * @return true on success, false on error
+    */
+    bool sendByte(const char c, bool eoi = false);
+
+    /**
      * @brief Send bytes to bus
      * @param buf buffer to send
      * @param len length of buffer
+     * @param eoi Send EOI?
+     * @return true on success, false on error
      */
-    void sendBytes(const char *buf, size_t len);
+    bool sendBytes(const char *buf, size_t len, bool eoi = true);
 
     /**
      * @brief Send string to bus
      * @param s std::string to send
+     * @param eoi Send EOI?
+     * @return true on success, false on error
      */
-    void sendBytes(std::string s);
+    bool sendBytes(std::string s, bool eoi = true);
 
     /**
      * @brief Receive Byte from bus
      * @return Byte received from bus, or -1 for error.
      */
     int16_t receiveByte();
-
-    /**
-     * @brief send single byte
-     * @param c byte to send
-     * @param eoi Send EOI?
-    */
-   void sendByte(const char c, bool eoi);
 
     /**
      * @brief called in response to RESET pin being asserted.

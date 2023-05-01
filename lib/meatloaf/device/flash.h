@@ -41,7 +41,6 @@ public:
     std::string basepath = "";
     
     FlashFile(std::string path) {
-        //basepath = device_config.basepath();
 
         parseUrl( path );
 

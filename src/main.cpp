@@ -19,6 +19,8 @@
 
 #include "httpService.h"
 
+#include "led_strip.h"
+
 #ifdef BLUETOOTH_SUPPORT
 #include "fnBluetooth.h"
 #endif
@@ -70,10 +72,12 @@ void main_setup()
     // Enable GPIO Interrupt Service Routine
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
 
-    fnSystem.check_hardware_ver();
+    fnSystem.check_hardware_ver(); // Run early to determine correct FujiNet hardware
     Debug_printf("Detected Hardware Version: %s\n", fnSystem.get_hardware_ver_str());
 
     fnKeyManager.setup();
+
+    fnLedStrip.setup(); // start LED Strip before fnLedManager and after check_hardware_ver()
     fnLedManager.setup();
 
     fnSPIFFS.start();
@@ -152,7 +156,7 @@ void main_setup()
 #ifdef BUILD_RC2014
     theFuji.setup(&rc2014Bus);
     rc2014Bus.setup();
-    
+
     FileSystem *ptrfs = fnSDFAT.running() ? (FileSystem *)&fnSDFAT : (FileSystem *)&fnSPIFFS;
     rc2014Printer::printer_type ptype = Config.get_printer_type(0);
     if (ptype == rc2014Printer::printer_type::PRINTER_INVALID)
@@ -212,7 +216,7 @@ void main_setup()
     iwmModem *sioR;
     FileSystem *ptrfs = fnSDFAT.running() ? (FileSystem *)&fnSDFAT : (FileSystem *)&fnSPIFFS;
     sioR = new iwmModem(ptrfs, Config.get_modem_sniffer_enabled());
-    IWM.addDevice(sioR,iwm_fujinet_type_t::Modem);    
+    IWM.addDevice(sioR,iwm_fujinet_type_t::Modem);
     iwmPrinter::printer_type ptype = Config.get_printer_type(0);
     iwmPrinter *ptr = new iwmPrinter(ptrfs, ptype);
     fnPrinters.set_entry(0, ptr, ptype, Config.get_printer_port(0));

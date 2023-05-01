@@ -1,9 +1,9 @@
 #include "meat_io.h"
 
+#include <sys/stat.h>
 #include <algorithm>
 #include <vector>
 #include <sstream>
-#include <sys/stat.h>
 
 #include "../../include/debug.h"
 
@@ -38,11 +38,11 @@
 // Network
 #include "network/http.h"
 #include "network/ml.h"
-//#include "network/ipfs.h"
-//#include "network/tnfs.h"
-//#include "network/smb.h"
-//#include "network/cs.h"
-//#include "network/ws.h"
+// #include "network/ipfs.h"
+// #include "network/tnfs.h"
+// #include "network/smb.h"
+// #include "network/cs.h"
+// #include "network/ws.h"
 
 // Tape
 #include "tape/t64.h"
@@ -56,15 +56,15 @@
 FlashFileSystem defaultFS;
 #ifdef SD_CARD
 SDFileSystem sdFS;
-#endif
+#endif          
 
 // Scheme
 HttpFileSystem httpFS;
 MLFileSystem mlFS;
-//IPFSFileSystem ipfsFS;
-//TNFSFileSystem tnfsFS;
-//CServerFileSystem csFS;
-//TcpFileSystem tcpFS;
+// IPFSFileSystem ipfsFS;
+// TNFSFileSystem tnfsFS;
+// CServerFileSystem csFS;
+// TcpFileSystem tcpFS;
 
 //WSFileSystem wsFS;
 
@@ -98,14 +98,14 @@ std::vector<MFileSystem*> MFSOwner::availableFS {
     &p00FS,
     &d64FS, &d71FS, &d80FS, &d81FS, &d82FS, &d8bFS, &dnpFS,
     &t64FS, &tcrtFS,
-    &httpFS, &mlFS, 
+    &httpFS, &mlFS
 //    &ipfsFS, &tcpFS,
 //    &tnfsFS
 };
 
 bool MFSOwner::mount(std::string name) {
     Debug_print("MFSOwner::mount fs:");
-    Debug_print(name.c_str());
+    Debug_println(name.c_str());
 
     for(auto i = availableFS.begin() + 1; i < availableFS.end() ; i ++) {
         auto fs = (*i);
@@ -116,11 +116,11 @@ bool MFSOwner::mount(std::string name) {
             bool ok = fs->mount();
 
             if(ok)
-                Debug_print("Mounted fs:");
+                Debug_print("Mounted fs: ");
             else
-                Debug_print("Couldn't mount fs:");
+                Debug_print("Couldn't mount fs: ");
 
-            Debug_print(name.c_str());
+            Debug_println(name.c_str());
 
             return ok;
         }
@@ -312,6 +312,7 @@ MStream* MFile::meatStream() {
     Debug_printv("containerStream isRandomAccess[%d] isBrowsable[%d]", containerStream->isRandomAccess(), containerStream->isBrowsable());
 
     MStream* decodedStream(createIStream(containerStream)); // wrap this stream into decoded stream, i.e. unpacked zip files
+    decodedStream->url = this->url;
     Debug_printv("decodedStream isRandomAccess[%d] isBrowsable[%d]", decodedStream->isRandomAccess(), decodedStream->isBrowsable());
 
     if(decodedStream->isRandomAccess() && pathInStream != "") {
@@ -394,7 +395,7 @@ MFile* MFile::localRoot(std::string plus) {
 
 MFile* MFile::cd(std::string newDir) {
 
-    //Debug_printv("cd requested: [%s]", newDir.c_str());
+    Debug_printv("cd requested: [%s]", newDir.c_str());
 
     // OK to clarify - coming here there should be ONLY path or magicSymbol-path combo!
     // NO "cd:xxxxx", no "/cd:xxxxx" ALLOWED here! ******************
@@ -477,7 +478,8 @@ MFile* MFile::cd(std::string newDir) {
         if ( !mstr::endsWith(url, "/") && newDir.size() )
             url.push_back('/');
 
-        //Debug_printv("> url[%s] newDir[%s]", url.c_str(), newDir.c_str());
+        Debug_printv("> url[%s] newDir[%s]", url.c_str(), newDir.c_str());
+
 
         return MFSOwner::File(url + newDir);
     }
