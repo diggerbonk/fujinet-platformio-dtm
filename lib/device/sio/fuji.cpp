@@ -982,6 +982,7 @@ void sioFuji::sio_read_directory_entry()
             else 
             {
                 if (f->isDir) current_entry[0] = 1;
+                else if (filenamedest[0] == '+') current_entry[0] = 3; // files starting with plus are links.
                 else  current_entry[0] = 2;
             }
             filenamedest += 1;
