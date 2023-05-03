@@ -150,7 +150,7 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
         strncpy(_name, &tempBuf[nameStart], _name_len);
         strncpy(_resource, &tempBuf[resourceStart], _resource_len);
 
-        strlcpy(_direntry.filename, _name, _name_len);
+        strlcpy(_direntry.filename, _name, _name_len+1);
         
         return &_direntry;
     }
