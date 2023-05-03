@@ -102,13 +102,15 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
         _direntry.size = 0;
         _direntry.modified_time = 0;
 
-        // menu format: [<type>|]<item>[|<resource>]
+        // menu format: [<type>|]<name>[|<resource>]
         //
-        //     <type> : hex number
-        //     <item> : Value to display, a string. Must not contain the '|' 
-        //              symbol. If no <item> is present, it is also the 
-        //              resource.
-        //     <resource> : A string resource, format dependent on <type>
+        //       <type> : Eight bit int in ascii hex ("0F") format.
+        //       <name> : Name of the resource being pointed to by this 
+        //                menu. A short, friendly string that will be 
+        //                displayed in the TNFS browser. Must not contain 
+        //                the pipe ('|') symbol. If no resource is 
+        //                specified, this is also the resource.
+        //   <resource> : A string resource, format dependent on <type>
 
         int len = strlen(tempBuf);
         if (len>0 && tempBuf[len-1] == '\n') {

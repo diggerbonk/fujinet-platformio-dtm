@@ -973,7 +973,7 @@ void sioFuji::sio_read_directory_entry()
             bufsize = sizeof(current_entry) - ADDITIONAL_DETAILS_BYTES;
             filenamedest = current_entry + ADDITIONAL_DETAILS_BYTES;
         }
-        // 0x40 indicates support for TNFS menus
+        // 0x40 indicates we want the menu resource name and type.
         else if (cmdFrame.aux2 & 0x40)
         {
             if (_fnHosts[_current_open_directory_slot].get_menu_initialized()) 
