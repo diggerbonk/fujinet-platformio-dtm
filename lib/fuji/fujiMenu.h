@@ -5,7 +5,9 @@
 #include "fnFS.h"
 
 #define MAX_MENU_SIZE 65535
-#define MAX_MENU_LINE_LEN 256
+#define MAX_MENU_NAME_LEN 80
+#define MAX_MENU_RESOURCE_LEN 168
+#define MAX_MENU_LINE_LEN MAX_PATHLEN
 #define MAX_MENU_LINES 4096
 
 //
@@ -23,9 +25,13 @@ private:
     uint16_t _current_offset = 0;
     uint16_t _current_pos = 0;
     fsdir_entry _direntry;
-    int8_t _type = 0;
-    int8_t decode_menutype(const char * buf);
-    
+
+    uint8_t _type = 0;
+    uint8_t _name_len = 0;
+    char _name[MAX_MENU_NAME_LEN];
+    uint8_t _resource_len = 0;
+    char _resource[MAX_MENU_RESOURCE_LEN];
+    uint8_t decode_menutype(const char * buf);
 
 public:
 
@@ -33,6 +39,10 @@ public:
     ~fujiMenu() {};
 
     uint8_t get_menu_entry_type() { return _type; };
+    uint8_t get_name_len() { return _name_len; };
+    uint8_t get_resource_len() { return _resource_len; };
+    const char * get_name() { return _name; };
+    const char * get_resource() { return _resource; };
     bool init(const char *path, FILE * mf);
     void release();
     bool get_initialized() { return (_menu_file != nullptr); };
