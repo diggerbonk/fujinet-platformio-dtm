@@ -414,7 +414,7 @@ bool fujiHost::get_menu_initialized()
     return _menu.get_initialized();
 }
 
-uint8_t fujiHost::get_menu_entry_type()
+uint16_t fujiHost::get_menu_entry_type()
 {
     if (_menu.get_initialized()) return _menu.get_menu_entry_type();
     else return 0;

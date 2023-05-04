@@ -978,16 +978,18 @@ void sioFuji::sio_read_directory_entry()
         {
             if (_fnHosts[_current_open_directory_slot].get_menu_initialized()) 
             {
-                current_entry[0] = _fnHosts[_current_open_directory_slot].get_menu_entry_type();
+                current_entry[0] = _fnHosts[_current_open_directory_slot].get_menu_entry_type() >> 8;
+                current_entry[1] =  _fnHosts[_current_open_directory_slot].get_menu_entry_type();
             }
             else 
             {
-                if (f->isDir) current_entry[0] = 1;
-                else if (filenamedest[0] == '+') current_entry[0] = 3; // files starting with plus are links.
-                else  current_entry[0] = 2;
+                current_entry[0] = 0;
+                if (f->isDir) current_entry[1] = 1;
+                else if (filenamedest[0] == '+') current_entry[1] = 3; // files starting with plus are links.
+                else  current_entry[1] = 2;
             }
-            filenamedest += 1;
-            bufsize -= 1;
+            filenamedest += 2;
+            bufsize -= 2;
         }
         else
         {

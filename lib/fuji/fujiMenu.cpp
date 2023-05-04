@@ -67,9 +67,9 @@ bool fujiMenu::set_pos(uint16_t newPos)
     return true;
 }
 
-uint8_t fujiMenu::decode_menutype(const char * buf)
+uint16_t fujiMenu::decode_menutype(const char * buf)
 {
-    return (uint8_t)strtol(buf, nullptr, 16);
+    return (uint16_t)strtol(buf, nullptr, 16);
 }
 
 fsdir_entry_t * fujiMenu::get_next_menu_entry() 
@@ -77,11 +77,11 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
     char tempBuf[MAX_MENU_LINE_LEN];
     _type = 0;
     _name_len = 0;
-    _resource_len = 0;
+    _item_len = 0;
     memset(_name, 0, MAX_MENU_NAME_LEN);
-    memset(_resource, 0, MAX_MENU_RESOURCE_LEN);
+    memset(_item, 0, MAX_MENU_ITEM_LEN);
     uint8_t nameStart = 0;
-    uint8_t resourceStart = 0;
+    uint8_t itemStart = 0;
 
     // if we have an offset, skip to it. 
     if (_current_offset > 0) 
@@ -102,56 +102,55 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
         _direntry.size = 0;
         _direntry.modified_time = 0;
 
-        // menu format: [<type>|]<name>[|<resource>]
-        //
-        //       <type> : Eight bit int in ascii hex ("0F") format.
-        //       <name> : Name of the resource being pointed to by this 
-        //                menu. A short, friendly string that will be 
-        //                displayed in the TNFS browser. Must not contain 
-        //                the pipe ('|') symbol. If no resource is 
-        //                specified, this is also the resource.
-        //   <resource> : A string resource, format dependent on <type>
+        // menu format: [<type>|]<name>[|<item>]
+
+
 
         int len = strlen(tempBuf);
+
         if (len>0 && tempBuf[len-1] == '\n') {
             tempBuf[len-1] = 0;
             len--;
         }
+        else return nullptr;
 
-        if (len > 2 && tempBuf[2] == '|')
+        char * pt = strchr(tempBuf, '|');
+        if (pt && (pt - tempBuf) < 5)
         {
-            nameStart = 3;
+            nameStart = pt-tempBuf+1;
             _name_len = len+1;
             _type = decode_menutype(tempBuf);
-            printf("menu type %i\n", _type);
 
-            char * pt = strchr(&tempBuf[nameStart], '|');
+            pt = strchr(&tempBuf[nameStart], '|');
             if (pt)
             {
                 _name_len = (pt - (tempBuf + nameStart));
-                resourceStart = 4 + _name_len;
-                _resource_len = len - resourceStart;
+                itemStart = 4 + _name_len;
+                _item_len = len - itemStart;
             }
             else
             {
-                resourceStart = nameStart;
+                itemStart = nameStart;
                 _name_len = len - 3;
-                _resource_len = _name_len;
+                _item_len = _name_len;
             }
         }
         else
         {
             _name_len = len;
-            _resource_len = _name_len;
+            _item_len = _name_len;
         }
 
         if (_type == 1) _direntry.isDir = true;
 
-        strncpy(_name, &tempBuf[nameStart], _name_len);
-        strncpy(_resource, &tempBuf[resourceStart], _resource_len);
+        if (_name_len >= MAX_MENU_NAME_LEN) _name_len = MAX_MENU_NAME_LEN-1;
+        if (_item_len >= MAX_MENU_ITEM_LEN) _item_len = MAX_MENU_ITEM_LEN-1;
 
-        strlcpy(_direntry.filename, _name, _name_len+1);
-        
+        strncpy(_name, &tempBuf[nameStart], _name_len);
+        strncpy(_item, &tempBuf[itemStart], _item_len);
+
+        strncpy(_direntry.filename, _name, _name_len+1);
+
         return &_direntry;
     }
     else return nullptr;
