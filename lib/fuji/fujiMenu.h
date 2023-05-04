@@ -10,12 +10,13 @@
 #define MAX_MENU_LINE_LEN MAX_PATHLEN
 #define MAX_MENU_LINES 4096
 
-//
-// Menu line format is:
-//
-//     <entry>    := [<type> "|"]<resource>
-//     <type>     := Hex Byte in ASCII (e.g. "0A")
-//     <resource> := <STRING>
+enum fujiMenuType
+{
+    MENU_TYPE_TEXT = 0,
+    MENU_TYPE_FOLDER,
+    MENU_TYPE_BINARY,
+    MENU_TYPE_LINK
+};
 
 class fujiMenu
 {
