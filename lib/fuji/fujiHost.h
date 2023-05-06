@@ -24,6 +24,7 @@ private:
 
     char _hostname[MAX_HOSTNAME_LEN] = { '\0' };
     char _prefix[MAX_HOST_PREFIX_LEN] = { '\0' };
+    char _current_path[MAX_HOST_PREFIX_LEN] = { '\0' };
 
     void cleanup();
     void unmount();
@@ -64,7 +65,8 @@ public:
     bool file_remove(char *fullpath);
 
     // Directory functions
-    bool dir_open(const char *path, const char *pattern, uint16_t options = 0, bool usefujimenu = false);
+    bool menu_open(const char *name);
+    bool dir_open(const char *path, const char *pattern, uint16_t options = 0);
     void dir_close();
     fsdir_entry_t * dir_nextfile();
     uint16_t dir_tell();

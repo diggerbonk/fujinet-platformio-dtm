@@ -847,6 +847,23 @@ void sioFuji::shutdown()
         _fnDisks[i].disk_dev.unmount();
 }
 
+void sioFuji::sio_open_menu()
+{
+    char menuName[32];
+    uint8_t ck = bus_to_peripheral((uint8_t*)&menuName, sizeof(menuName));
+    if (sio_checksum((uint8_t*)&menuName, sizeof(menuName)) != ck)
+    {
+        sio_error();
+        return;
+    }
+
+    if (_current_open_directory_slot != -1)
+    {
+        _fnHosts[_current_open_directory_slot].menu_open(menuName);
+    }
+    sio_complete();
+}
+
 void sioFuji::sio_open_directory()
 {
     Debug_println("Fuji cmd: OPEN DIRECTORY");
@@ -890,7 +907,7 @@ void sioFuji::sio_open_directory()
 
     Debug_printf("Opening directory: \"%s\", pattern: \"%s\"\n", dirpath, pattern ? pattern : "");
 
-    if (_fnHosts[hostSlot].dir_open(dirpath, pattern, 0, cmdFrame.aux2 & 1))
+    if (_fnHosts[hostSlot].dir_open(dirpath, pattern, 0))
     {
         _current_open_directory_slot = hostSlot;
         sio_complete();
@@ -1690,6 +1707,10 @@ void sioFuji::sio_process(uint32_t commanddata, uint8_t checksum)
     case FUJICMD_OPEN_DIRECTORY:
         sio_ack();
         sio_open_directory();
+        break;
+    case FUJICMD_OPEN_MENU:
+        sio_ack();
+        sio_open_menu();
         break;
     case FUJICMD_READ_DIR_ENTRY:
         sio_ack();

@@ -13,9 +13,10 @@
 enum fujiMenuType
 {
     MENU_TYPE_TEXT = 0,
-    MENU_TYPE_FOLDER,
+    MENU_TYPE_FOLDER,   
     MENU_TYPE_BINARY,
-    MENU_TYPE_LINK
+    MENU_TYPE_LINK,
+    MENU_TYPE_SUBMENU
 };
 
 class fujiMenu
