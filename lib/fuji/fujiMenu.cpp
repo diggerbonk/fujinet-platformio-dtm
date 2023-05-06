@@ -104,8 +104,6 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
 
         // menu format: [<type>|]<name>[|<item>]
 
-
-
         int len = strlen(tempBuf);
 
         if (len>0 && tempBuf[len-1] == '\n') {
@@ -131,7 +129,7 @@ fsdir_entry_t * fujiMenu::get_next_menu_entry()
             else
             {
                 itemStart = nameStart;
-                _name_len = len - 3;
+                _name_len = len - nameStart;
                 _item_len = _name_len;
             }
         }
