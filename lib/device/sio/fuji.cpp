@@ -849,7 +849,7 @@ void sioFuji::shutdown()
 
 void sioFuji::sio_open_menu()
 {
-    char menuName[32];
+    char menuName[MAX_MENU_NAME_LEN];
     uint8_t ck = bus_to_peripheral((uint8_t*)&menuName, sizeof(menuName));
     if (sio_checksum((uint8_t*)&menuName, sizeof(menuName)) != ck)
     {

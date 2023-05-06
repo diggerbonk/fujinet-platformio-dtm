@@ -17,6 +17,7 @@
 #define MAX_NETWORK_DEVICES 8
 
 #define MAX_WIFI_PASS_LEN 64
+#define MAX_MENU_NAME_LEN 32
 
 #define MAX_APPKEY_LEN 64
 
