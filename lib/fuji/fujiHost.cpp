@@ -133,18 +133,7 @@ bool fujiHost::dir_seek(uint16_t pos)
     return result;
 }
 
-bool fujiHost::menu_open(const char *name)
-{
-    char realpath[MAX_PATHLEN];
-    strlcpy(realpath, _current_path, MAX_PATHLEN);
-    if (strlen(name) > 5) strlcat(realpath, name, MAX_PATHLEN);
-    else strlcat(realpath, "tnfs.menu", MAX_PATHLEN);
-    FILE * mf = _fs->file_open(realpath, "r");
-    if (mf) _menu.init(realpath, mf);
-    return true;
-}
-
-bool fujiHost::dir_open(const char *path, const char *pattern, uint16_t options)
+bool fujiHost::dir_open(const char *path, const char *pattern, uint16_t options, bool useMenu)
 {
     Debug_printf("::dir_open {%d:%d} \"%s\", pattern \"%s\"\n", slotid, _type, path, pattern ? pattern : "");
     if (_fs == nullptr)
@@ -171,11 +160,13 @@ bool fujiHost::dir_open(const char *path, const char *pattern, uint16_t options)
         break;
     }
 
-    if (result) 
-    {
-        if (strlen(realpath) > 1) strlcat(realpath, "/", 256);
-        strlcpy(_current_path, realpath,256);
+    if (useMenu) {
+        if (strlen(realpath) > 1) strlcat(realpath, "/tnfs.menu", 256);
+        else strlcat(realpath, "tnfs.menu", 256);
+        FILE * mf = _fs->file_open(realpath, "r");
+        if (mf) _menu.init(realpath, mf);
     }
+
     return result;
 }
 

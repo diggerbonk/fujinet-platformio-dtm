@@ -17,7 +17,6 @@
 #define MAX_NETWORK_DEVICES 8
 
 #define MAX_WIFI_PASS_LEN 64
-#define MAX_MENU_NAME_LEN 32
 
 #define MAX_APPKEY_LEN 64
 
@@ -111,7 +110,6 @@ protected:
     void sio_set_boot_config();        // 0xD9
     void sio_copy_file();              // 0xD8
     void sio_set_boot_mode();          // 0xD6
-    void sio_open_menu();              // 0xD0
 
     void sio_status() override;
     void sio_process(uint32_t commanddata, uint8_t checksum) override;
