@@ -42,14 +42,15 @@ public:
     uint16_t get_menu_entry_type() { return _type; };
     uint8_t get_name_len() { return _name_len; };
     uint8_t get_item_len() { return _item_len; };
-    const char * get_name() { return _name; };
-    const char * get_item() { return _item; };
+    uint8_t get_name(char * p);
+    uint8_t get_item(char * p);
     bool init(const char *path, FILE * mf);
     void release();
     bool get_initialized() { return (_menu_file != nullptr); };
     uint16_t get_pos() { return _current_offset; };
     bool set_pos(uint16_t newPos);
-    fsdir_entry_t * get_next_menu_entry();
+    bool next_menu_entry();
+
 };
 
 #endif // _FUJI_MENU_

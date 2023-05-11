@@ -178,8 +178,7 @@ fsdir_entry_t *fujiHost::dir_nextfile()
     {
     case HOSTTYPE_LOCAL:
     case HOSTTYPE_TNFS:
-        if (_menu.get_initialized()) return _menu.get_next_menu_entry();
-        else return _fs->dir_read();
+        return _fs->dir_read();
     case HOSTTYPE_UNINITIALIZED:
         break;
     }
@@ -407,6 +406,12 @@ bool fujiHost::umount()
 
     // Try unmounting TNFS
     return 0 == unmount_tnfs();
+}
+
+fujiMenu * fujiHost::get_menu()
+{
+    if (_menu.get_initialized()) return &_menu;
+    else  return nullptr;
 }
 
 bool fujiHost::get_menu_initialized()
