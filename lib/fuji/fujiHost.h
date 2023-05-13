@@ -43,8 +43,6 @@ public:
     void set_type(fujiHostType type);
     fujiHostType get_type() { return _type; };
     fujiMenu * get_menu();
-    bool get_menu_initialized();
-    uint16_t get_menu_entry_type(); 
 
     void set_hostname(const char *hostname);
     const char* get_hostname(char *buffer, size_t buffersize);

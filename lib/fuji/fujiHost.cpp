@@ -413,15 +413,3 @@ fujiMenu * fujiHost::get_menu()
     if (_menu.get_initialized()) return &_menu;
     else  return nullptr;
 }
-
-bool fujiHost::get_menu_initialized()
-{
-    return _menu.get_initialized();
-}
-
-uint16_t fujiHost::get_menu_entry_type()
-{
-    if (_menu.get_initialized()) return _menu.get_menu_entry_type();
-    else return 0;
-}
-
