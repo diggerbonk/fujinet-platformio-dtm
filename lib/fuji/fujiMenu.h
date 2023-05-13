@@ -10,13 +10,11 @@
 #define MAX_MENU_LINE_LEN MAX_PATHLEN
 #define MAX_MENU_LINES 4096
 
-enum fujiMenuType
-{
-    MENU_TYPE_TEXT = 0,
-    MENU_TYPE_FOLDER,   
-    MENU_TYPE_BINARY,
-    MENU_TYPE_LINK
-};
+#define MENU_TYPE_TEXT 0
+#define MENU_TYPE_FOLDER 1
+#define MENU_TYPE_BINARY 2
+#define MENU_TYPE_LINK 3
+#define MENU_TYPE_SUBMENU 4
 
 class fujiMenu
 {
@@ -27,7 +25,7 @@ private:
     uint16_t _current_pos = 0;
     fsdir_entry _direntry;
 
-    uint16_t _type = 0;
+    uint16_t _type = MENU_TYPE_TEXT;
     uint8_t _name_len = 0;
     char _name[MAX_MENU_NAME_LEN];
     uint8_t _item_len = 0;

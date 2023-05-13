@@ -75,7 +75,7 @@ uint16_t fujiMenu::decode_menutype(const char * buf)
 bool fujiMenu::next_menu_entry() 
 {
     char tempBuf[MAX_MENU_LINE_LEN];
-    _type = 0;
+    _type = MENU_TYPE_TEXT;
     _name_len = 0;
     _item_len = 0;
     memset(_name, 0, MAX_MENU_NAME_LEN);
@@ -140,6 +140,13 @@ bool fujiMenu::next_menu_entry()
 
         strncpy(_name, &tempBuf[nameStart], _name_len);
         strncpy(_item, &tempBuf[itemStart], _item_len);
+ 
+        if (_type == MENU_TYPE_FOLDER || _type == MENU_TYPE_SUBMENU) 
+        {
+            _item_len++;
+            _item[_item_len-1] = '/';
+            _item[_item_len] = 0;
+        }
 
         return true;
     }
