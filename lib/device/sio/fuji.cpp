@@ -1007,10 +1007,10 @@ void sioFuji::sio_read_directory_entry()
         // 0x40 indicates we want the menu resource name and type.
         else if (cmdFrame.aux2 & 0x40)
         {
-            current_entry[0] = 0;
             if (f->isDir) current_entry[1] = 1;
-            else if (filenamedest[0] == '+') current_entry[1] = 3; // files starting with plus are links.
+            else if (f->filename[0] == '+') current_entry[1] = 3; // files starting with plus are links.
             else  current_entry[1] = 2;
+            current_entry[0] = 0;
             filenamedest += 2;
             bufsize -= 2;
         }
