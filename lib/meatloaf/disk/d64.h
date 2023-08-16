@@ -72,10 +72,18 @@ protected:
         uint16_t blocks;
     };
 
+public:
     std::vector<Partition> partitions;
     std::vector<uint8_t> sectorsPerTrack = { 17, 18, 19, 21 };
+    std::vector<uint8_t> interleave = { 3, 10 }; // Directory, File
 
-public:
+    uint8_t dos_version = 0x41;
+    std::string dos_rom = "dos1541";
+    std::string dos_name = "";
+
+    bool error_info = false;
+    std::string bam_message = "";
+
     D64IStream(std::shared_ptr<MStream> is) : CBMImageStream(is) 
     {
         // D64 Partition Info
@@ -102,8 +110,6 @@ public:
         partitions.clear();
         partitions.push_back(p);
         sectorsPerTrack = { 17, 18, 19, 21 };
-        block_size = 256;
-
 
         uint32_t size = containerStream->size();
         switch (size + media_header_size) 
@@ -146,34 +152,41 @@ public:
         // types of extended disk formats you want to create/work with. 
 
         // // DOLPHIN DOS
-        // block_allocation_map += [{
-        //     "track": 18,
-        //     "sector": 0,
-        //     "offset": 0xAC,
-        //     "start_track": 36,
-        //     "end_track": 40,
-        //     "byte_count": 4
-        // }];
+        // partitions[0].block_allocation_map.push_back( 
+        //         {
+        //             18,     // track
+        //             0,      // sector
+        //             0xAC,   // offset
+        //             36,      // start_track
+        //             40,     // end_track
+        //             4       // byte_count
+        //         } 
+        // );
 
         // // SPEED DOS
-        // block_allocation_map += [{
-        //     "track": 18,
-        //     "sector": 0,
-        //     "offset": 0xC0,
-        //     "start_track": 36,
-        //     "end_track": 40,
-        //     "byte_count": 4
-        // }];
+        // partitions[0].block_allocation_map.push_back( 
+        //         {
+        //             18,     // track
+        //             0,      // sector
+        //             0xC0,   // offset
+        //             36,     // start_track
+        //             40,     // end_track
+        //             4       // byte_count
+        //         } 
+        // );
 
         // // PrologicDOS
-        // block_allocation_map += [{
-        //     "track": 18,
-        //     "sector": 0,
-        //     "offset": 0xC0,
-        //     "start_track": 36,
-        //     "end_track": 40,
-        //     "byte_count": 4
-        // }];
+        // partitions[0].block_allocation_map.push_back( 
+        //         {
+        //             18,     // track
+        //             0,      // sector
+        //         0x90,   // offset
+        //             36,     // start_track
+        //             40,     // end_track
+        //             4       // byte_count
+        //         } 
+        // );
+        // partitions[0].header_offset = 0xA4;
 
         //getBAMMessage();
 
@@ -187,9 +200,9 @@ public:
 		return (track < 18) + (track < 25) + (track < 31);
 	};
 
-    //bool seekSector( uint16_t index ) override;
-    bool seekSector( uint8_t track, uint8_t sector, size_t offset = 0 );
-    bool seekSector( std::vector<uint8_t> trackSectorOffset );
+    bool seekBlock( uint64_t index, uint8_t offset = 0 ) override;
+    bool seekSector( uint8_t track, uint8_t sector, uint8_t offset = 0 ) override;
+    bool seekSector( std::vector<uint8_t> trackSectorOffset ) override;
 
     void seekHeader() override {
         seekSector( 
@@ -201,10 +214,8 @@ public:
     }
 
     bool seekNextImageEntry() override {
-        return seekEntry(entry_index + 1);
+        return seekEntry( entry_index + 1 );
     }
-
-
 
     virtual bool seekPath(std::string path) override;
     size_t readFile(uint8_t* buf, size_t size) override;
@@ -212,11 +223,8 @@ public:
     Header header;      // Directory header data
     Entry entry;        // Directory entry data
 
-    uint8_t dos_version = 0x41;
-    bool error_info = false;
-    std::string bam_message = "";
-
     uint8_t partition = 0;
+    uint64_t block = 0;
     uint8_t track = 0;
     uint8_t sector = 0;
     uint16_t offset = 0;
@@ -230,41 +238,13 @@ private:
     void sendListing();
 
     bool seekEntry( std::string filename );
-    bool seekEntry( size_t index = 0 );
+    bool seekEntry( uint32_t index = 0 );
 
 
     std::string readBlock( uint8_t track, uint8_t sector );
     bool writeBlock( uint8_t track, uint8_t sector, std::string data );    
     bool allocateBlock( uint8_t track, uint8_t sector );
     bool deallocateBlock( uint8_t track, uint8_t sector );
-
-
-    // uint8_t d64_get_type(uint16_t imgsize)
-    // {
-    //     switch (imgsize)
-    //     {
-    //         // D64
-    //         case 174848:  // 35 tracks no errors
-    //         case 175531:  // 35 w/ errors
-    //         case 196608:  // 40 tracks no errors
-    //         case 197376:  // 40 w/ errors
-    //         case 205312:  // 42 tracks no errors
-    //         case 206114:  // 42 w/ errors
-    //             return D64_TYPE_D64;
-
-    //         // D71
-    //         case 349696:  // 70 tracks no errors
-    //         case 351062:  // 70 w/ errors
-    //             return D64_TYPE_D71;
-
-    //         // D81
-    //         case 819200:  // 80 tracks no errors
-    //         case 822400:  // 80 w/ errors
-    //             return D64_TYPE_D81;
-    //     }
-
-    //     return D64_TYPE_UNKNOWN;
-    // }
 
     // Disk
     friend class D64File;
@@ -329,11 +309,12 @@ class D64FileSystem: public MFileSystem
 {
 public:
     MFile* getFile(std::string path) override {
+        //Debug_printv("path[%s]", path.c_str());
         return new D64File(path);
     }
 
     bool handles(std::string fileName) {
-        //Serial.printf("handles w dnp %s %d\n", fileName.rfind(".dnp"), fileName.length()-4);
+        //Serial.printf("handles w dnp %s %d\r\n", fileName.rfind(".dnp"), fileName.length()-4);
         return byExtension(".d64", fileName);
     }
 

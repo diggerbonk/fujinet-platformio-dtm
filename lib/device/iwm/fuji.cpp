@@ -5,7 +5,7 @@
 #include "fnConfig.h"
 #include "led.h"
 #include "fnWiFi.h"
-#include "fnFsSPIFFS.h"
+#include "fsFlash.h"
 #include "utils.h"
 
 #include <string>
@@ -240,7 +240,16 @@ void iwmFuji::iwm_ctrl_disk_image_mount() // SP CTRL command
 void iwmFuji::iwm_ctrl_set_boot_config() // SP CTRL command
 {
     boot_config = data_buffer[0]; // adamnet_recv();
-    //adamnet_recv();
+
+    if (!boot_config) 
+    {
+        fujiDisk &disk = _fnDisks[0];
+        if (disk.host_slot == INVALID_HOST_SLOT)
+        {
+            _fnDisks[0].disk_dev.unmount();
+            _fnDisks[0].reset();
+        }  
+    }
 }
 
 
@@ -300,7 +309,7 @@ bool iwmFuji::mount_all()
 {
     bool nodisks = true; // Check at the end if no disks are in a slot and disable config
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < MAX_DISK_DEVICES; i++)
     {
         fujiDisk &disk = _fnDisks[i];
         fujiHost &host = _fnHosts[disk.host_slot];
@@ -309,7 +318,7 @@ bool iwmFuji::mount_all()
         if (disk.access_mode == DISK_ACCESS_MODE_WRITE)
             flag[1] = '+';
 
-        if (disk.host_slot != 0xFF)
+        if (disk.host_slot != INVALID_HOST_SLOT)
         {
             nodisks = false; // We have a disk in a slot
 
@@ -1003,12 +1012,12 @@ void iwmFuji::insert_boot_device(uint8_t d)
     switch (d)
     {
     case 0:
-        fBoot = fnSPIFFS.file_open(config_atr);
+        fBoot = fsFlash.file_open(config_atr);
         _fnDisks[0].disk_dev.mount(fBoot, config_atr, 143360, MEDIATYPE_PO);        
         break;
     case 1:
 
-        fBoot = fnSPIFFS.file_open(mount_all_atr);
+        fBoot = fsFlash.file_open(mount_all_atr);
         _fnDisks[0].disk_dev.mount(fBoot, mount_all_atr, 143360, MEDIATYPE_PO);        
         break;
     }
@@ -1061,7 +1070,7 @@ void iwmFuji::setup(iwmBus *iwmbus)
     theCPM = new iwmCPM();
     _iwm_bus->addDevice(theCPM, iwm_fujinet_type_t::CPM);    
 
-   for (int i = MAX_DISK_DEVICES - 1; i >= 0; i--)
+   for (int i = MAX_DISK_DEVICES - MAX_DISK2_DEVICES -1; i >= 0; i--)
    {
      _fnDisks[i].disk_dev.set_disk_number('0' + i);
      _iwm_bus->addDevice(&_fnDisks[i].disk_dev, iwm_fujinet_type_t::BlockDisk);
@@ -1070,12 +1079,12 @@ void iwmFuji::setup(iwmBus *iwmbus)
     Debug_printf("\nConfig General Boot Mode: %u\n",Config.get_general_boot_mode());
     if (Config.get_general_boot_mode() == 0)
     {
-        FILE *f = fnSPIFFS.file_open("/autorun.po");
+        FILE *f = fsFlash.file_open("/autorun.po");
          _fnDisks[0].disk_dev.mount(f, "/autorun.po", 512*256, MEDIATYPE_PO);
     }
     else
     {
-        FILE *f = fnSPIFFS.file_open("/mount-and-boot.po");
+        FILE *f = fsFlash.file_open("/mount-and-boot.po");
          _fnDisks[0].disk_dev.mount(f, "/mount-and-boot.po", 512*256, MEDIATYPE_PO);      
     }
 

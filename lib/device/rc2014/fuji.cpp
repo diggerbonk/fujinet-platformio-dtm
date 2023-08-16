@@ -9,7 +9,7 @@
 #include "fnSystem.h"
 #include "fnConfig.h"
 #include "fnWiFi.h"
-#include "fnFsSPIFFS.h"
+#include "fsFlash.h"
 
 #include "utils.h"
 
@@ -127,7 +127,7 @@ void rc2014Fuji::rc2014_net_scan_result()
     // Response to FUJICMD_GET_SCAN_RESULT
     struct
     {
-        char ssid[MAX_SSID_LEN];
+        char ssid[MAX_SSID_LEN+1];
         uint8_t rssi;
     } detail;
 
@@ -159,7 +159,7 @@ void rc2014Fuji::rc2014_net_get_ssid()
     // Response to FUJICMD_GET_SSID
     struct
     {
-        char ssid[MAX_SSID_LEN];
+        char ssid[MAX_SSID_LEN+1];
         char password[MAX_WIFI_PASS_LEN];
     } cfg;
 
@@ -201,7 +201,7 @@ void rc2014Fuji::rc2014_net_set_ssid()
         // Data for FUJICMD_SET_SSID
         struct
         {
-            char ssid[MAX_SSID_LEN];
+            char ssid[MAX_SSID_LEN+1];
             char password[MAX_WIFI_PASS_LEN];
         } cfg;
 
@@ -975,7 +975,7 @@ void rc2014Fuji::setup(systemBus *siobus)
     _rc2014_bus->addDevice(&_fnDisks[2].disk_dev, RC2014_DEVICEID_DISK + 2);
     _rc2014_bus->addDevice(&_fnDisks[3].disk_dev, RC2014_DEVICEID_DISK + 3);
 
-    //FILE *f = fnSPIFFS.file_open("/autorun.ddp");
+    //FILE *f = fsFlash.file_open("/autorun.ddp");
     //_fnDisks[0].disk_dev.mount(f, "/autorun.ddp", 262144, MEDIATYPE_DDP);
 
     theNetwork = new rc2014Network();
@@ -1007,7 +1007,7 @@ void rc2014Fuji::mount_all()
         if (disk.access_mode == DISK_ACCESS_MODE_WRITE)
             flag[1] = '+';
 
-        if (disk.host_slot != 0xFF)
+        if (disk.host_slot != INVALID_HOST_SLOT)
         {
             nodisks = false; // We have a disk in a slot
 

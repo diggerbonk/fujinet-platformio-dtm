@@ -23,7 +23,7 @@ private:
 
     // Named Channel functions
     //std::shared_ptr<MStream> currentStream;
-    bool registerStream (uint8_t channel, int mode);
+    bool registerStream (uint8_t channel);
     std::shared_ptr<MStream> retrieveStream ( uint8_t channel );
     bool closeStream ( uint8_t channel, bool close_all = false );
 
@@ -53,10 +53,9 @@ private:
 protected:
     /**
      * @brief Process command fanned out from bus
-     * @param _commanddata the passed in commanddata
      * @return new device state
      */
-    device_state_t process(IECData *commanddata) override;
+    device_state_t process() override;
 
     /**
      * @brief process command for channel 0 (load)
@@ -146,7 +145,7 @@ protected:
     /**
      * @brief If response queue is empty, Return 1 if ANY receive buffer has data in it, else 0
      */
-    void iec_talk_command_buffer_status();
+    void iec_talk_command_buffer_status() override;
 
 public:
     iecDisk();

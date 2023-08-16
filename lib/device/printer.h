@@ -43,6 +43,18 @@
 # define PRINTER_CLASS rc2014Printer
 #endif
 
+#ifdef BUILD_H89
+# include "h89/printer.h"
+# include "h89/printerlist.h"
+# define PRINTER_CLASS H89Printer
+#endif
+
+#ifdef BUILD_COCO
+# include "drivewire/printer.h"
+# include "drivewire/printerlist.h"
+# define PRINTER_CLASS drivewirePrinter
+#endif
+
 #ifdef NEW_TARGET
 # include "new/printer.h"
 # include "new/printerlist.h"
@@ -53,6 +65,12 @@
 # include "iwm/printer.h"
 # include "iwm/printerlist.h"
 # define PRINTER_CLASS iwmPrinter
+#endif
+
+#ifdef BUILD_MAC
+#include "mac/printer.h"
+#include "mac/printerlist.h"
+#define PRINTER_CLASS macPrinter
 #endif
 
 #ifdef BUILD_CX16
