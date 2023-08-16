@@ -104,7 +104,8 @@ uint16_t fujiHost::dir_tell()
     {
     case HOSTTYPE_LOCAL:
     case HOSTTYPE_TNFS:
-        result = _fs->dir_tell();
+        if (_menu.get_initialized()) result = _menu.get_pos();
+        else result = _fs->dir_tell();
         break;
     case HOSTTYPE_UNINITIALIZED:
         break;
@@ -123,7 +124,8 @@ bool fujiHost::dir_seek(uint16_t pos)
     {
     case HOSTTYPE_LOCAL:
     case HOSTTYPE_TNFS:
-        result = _fs->dir_seek(pos);
+        if (_menu.get_initialized()) result = _menu.set_pos(pos);
+        else result = _fs->dir_seek(pos);
         break;
     case HOSTTYPE_UNINITIALIZED:
         break;
@@ -131,7 +133,7 @@ bool fujiHost::dir_seek(uint16_t pos)
     return result;
 }
 
-bool fujiHost::dir_open(const char *path, const char *pattern, uint16_t options)
+bool fujiHost::dir_open(const char *path, const char *pattern, uint16_t options, bool useMenu)
 {
     Debug_printf("::dir_open {%d:%d} \"%s\", pattern \"%s\"\n", slotid, _type, path, pattern ? pattern : "");
     if (_fs == nullptr)
@@ -157,6 +159,14 @@ bool fujiHost::dir_open(const char *path, const char *pattern, uint16_t options)
     case HOSTTYPE_UNINITIALIZED:
         break;
     }
+
+    if (useMenu) {
+        if (strlen(realpath) > 1) strlcat(realpath, "/tnfs.menu", 256);
+        else strlcat(realpath, "tnfs.menu", 256);
+        FILE * mf = _fs->file_open(realpath, "r");
+        if (mf) _menu.init(realpath, mf);
+    }
+
     return result;
 }
 
@@ -178,6 +188,7 @@ fsdir_entry_t *fujiHost::dir_nextfile()
 
 void fujiHost::dir_close()
 {
+    _menu.release();
     if (_type != HOSTTYPE_UNINITIALIZED && _fs != nullptr)
         _fs->dir_close();
 }
@@ -395,4 +406,10 @@ bool fujiHost::umount()
 
     // Try unmounting TNFS
     return 0 == unmount_tnfs();
+}
+
+fujiMenu * fujiHost::get_menu()
+{
+    if (_menu.get_initialized()) return &_menu;
+    else  return nullptr;
 }
