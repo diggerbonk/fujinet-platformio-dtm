@@ -110,6 +110,7 @@ protected:
     void sio_set_boot_config();        // 0xD9
     void sio_copy_file();              // 0xD8
     void sio_set_boot_mode();          // 0xD6
+    void sio_fuji_io();                // 0x10
 
     void read_menu_entry(uint8_t maxlen, fujiMenu *fm);
     void sio_status() override;

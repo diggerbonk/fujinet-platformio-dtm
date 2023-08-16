@@ -961,6 +961,10 @@ void sioFuji::read_menu_entry(uint8_t maxlen, fujiMenu * fm)
     bus_to_computer((uint8_t *)replybuffer, maxlen, false);
 }
 
+void sioFuji::sio_fuji_io()
+{
+}
+
 void sioFuji::sio_read_directory_entry()
 {
     uint8_t maxlen = cmdFrame.aux1;
@@ -1717,6 +1721,10 @@ void sioFuji::sio_process(uint32_t commanddata, uint8_t checksum)
     case FUJICMD_READ_DIR_ENTRY:
         sio_ack();
         sio_read_directory_entry();
+        break;
+    case FUJICMD_FUJI_IO:
+        sio_ack();
+        sio_fuji_io();
         break;
     case FUJICMD_CLOSE_DIRECTORY:
         sio_ack();

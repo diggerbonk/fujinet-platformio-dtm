@@ -48,6 +48,17 @@
 #define FUJICMD_RANDOM_NUMBER 0xD3              /*  */
 #define FUJICMD_GET_TIME 0xD2                   /*  */
 #define FUJICMD_DEVICE_ENABLE_STATUS 0xD1       /*  */
+#define FUJICMD_FUJI_IO 0x10              
 #define FUJICMD_TEST 0x00
 
-#endif
+class fujiCmd
+{
+private:
+
+public:
+
+    fujiCmd() {};
+    ~fujiCmd() {};
+};
+
+#endif // _FUJI_CMD_
