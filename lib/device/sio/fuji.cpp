@@ -918,6 +918,7 @@ void sioFuji::shutdown()
 void sioFuji::sio_open_directory()
 {
     Debug_println("Fuji cmd: OPEN DIRECTORY");
+
     char dirpath[256];
     uint8_t hostSlot = cmdFrame.aux1;
     uint8_t ck = bus_to_peripheral((uint8_t *)&dirpath, sizeof(dirpath));
