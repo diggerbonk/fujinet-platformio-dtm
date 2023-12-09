@@ -9,11 +9,6 @@ class drivewireDload : public virtualDevice
 {
 public:
     /**
-     * @brief the drivewire process method, isn't used.
-     */
-    virtual void drivewire_process(uint32_t commanddata, uint8_t checksum);
-
-    /**
      * @brief DLOAD state machine, called from service loop.
      */
     virtual void dload_process();
@@ -73,6 +68,11 @@ private:
      * @brief reply with file not found
      */
     virtual void send_filetype_file_not_found();
+
+    /**
+     * @brief send binary filetype binary reply
+     */
+    virtual void send_filetype_binary();
 
     /**
      * @brief wait for block request

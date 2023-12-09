@@ -525,60 +525,56 @@ void drivewireFuji::drivewire_copy_file()
 // Mount all
 void drivewireFuji::mount_all()
 {
-    // bool nodisks = true; // Check at the end if no disks are in a slot and disable config
+    bool nodisks = true; // Check at the end if no disks are in a slot and disable config
 
-    // for (int i = 0; i < 8; i++)
-    // {
-    //     fujiDisk &disk = _fnDisks[i];
-    //     fujiHost &host = _fnHosts[disk.host_slot];
-    //     char flag[3] = {'r', 0, 0};
+    for (int i = 0; i < 8; i++)
+    {
+        fujiDisk &disk = _fnDisks[i];
+        fujiHost &host = _fnHosts[disk.host_slot];
+        char flag[3] = {'r', 0, 0};
 
-    //     if (disk.access_mode == DISK_ACCESS_MODE_WRITE)
-    //         flag[1] = '+';
+        if (disk.access_mode == DISK_ACCESS_MODE_WRITE)
+            flag[1] = '+';
 
-    //     if (disk.host_slot != INVALID_HOST_SLOT)
-    //     {
-    //         nodisks = false; // We have a disk in a slot
+        if (disk.host_slot != INVALID_HOST_SLOT)
+        {
+            nodisks = false; // We have a disk in a slot
 
-    //         if (host.mount() == false)
-    //         {
-    //             drivewire_error();
-    //             return;
-    //         }
+            if (host.mount() == false)
+            {
+                return;
+            }
 
-    //         Debug_printf("Selecting '%s' from host #%u as %s on D%u:\n",
-    //                      disk.filename, disk.host_slot, flag, i + 1);
+            Debug_printf("Selecting '%s' from host #%u as %s on D%u:\n",
+                         disk.filename, disk.host_slot, flag, i + 1);
 
-    //         disk.fileh = host.file_open(disk.filename, disk.filename, sizeof(disk.filename), flag);
+            disk.fileh = host.file_open(disk.filename, disk.filename, sizeof(disk.filename), flag);
 
-    //         if (disk.fileh == nullptr)
-    //         {
-    //             drivewire_error();
-    //             return;
-    //         }
+            if (disk.fileh == nullptr)
+            {
+                return;
+            }
 
-    //         // We've gotten this far, so make sure our bootable CONFIG disk is disabled
-    //         boot_config = false;
-    //         status_wait_count = 0;
+            // We've gotten this far, so make sure our bootable CONFIG disk is disabled
+            boot_config = false;
 
-    //         // We need the file size for loading XEX files and for CASSETTE, so get that too
-    //         disk.disk_size = host.file_size(disk.fileh);
+            // We need the file size for loading XEX files and for CASSETTE, so get that too
+            disk.disk_size = host.file_size(disk.fileh);
 
-    //         // Set the host slot for high score mode
-    //         // TODO: Refactor along with mount disk image.
-    //         disk.disk_dev.host = &host;
+            // Set the host slot for high score mode
+            // TODO: Refactor along with mount disk image.
+            disk.disk_dev.host = &host;
 
-    //         // And now mount it
-    //         disk.disk_type = disk.disk_dev.mount(disk.fileh, disk.filename, disk.disk_size);
-    //     }
-    // }
+            // And now mount it
+            disk.disk_type = disk.disk_dev.mount(disk.fileh, disk.filename, disk.disk_size);
+        }
+    }
 
-    // if (nodisks){
-    //     // No disks in a slot, disable config
-    //     boot_config = false;
-    // }
+    if (nodisks){
+        // No disks in a slot, disable config
+        boot_config = false;
+    }
 
-    // drivewire_complete();
 }
 
 // Set boot mode
@@ -1401,61 +1397,61 @@ void drivewireFuji::drivewire_write_device_slots()
 // Temporary(?) function while we move from old config storage to new
 void drivewireFuji::_populate_slots_from_config()
 {
-    // for (int i = 0; i < MAX_HOSTS; i++)
-    // {
-    //     if (Config.get_host_type(i) == fnConfig::host_types::HOSTTYPE_INVALID)
-    //         _fnHosts[i].set_hostname("");
-    //     else
-    //         _fnHosts[i].set_hostname(Config.get_host_name(i).c_str());
-    // }
+    for (int i = 0; i < MAX_HOSTS; i++)
+    {
+        if (Config.get_host_type(i) == fnConfig::host_types::HOSTTYPE_INVALID)
+            _fnHosts[i].set_hostname("");
+        else
+            _fnHosts[i].set_hostname(Config.get_host_name(i).c_str());
+    }
 
-    // for (int i = 0; i < MAX_DISK_DEVICES; i++)
-    // {
-    //     _fnDisks[i].reset();
+    for (int i = 0; i < MAX_DISK_DEVICES; i++)
+    {
+        _fnDisks[i].reset();
 
-    //     if (Config.get_mount_host_slot(i) != HOST_SLOT_INVALID)
-    //     {
-    //         if (Config.get_mount_host_slot(i) >= 0 && Config.get_mount_host_slot(i) <= MAX_HOSTS)
-    //         {
-    //             strlcpy(_fnDisks[i].filename,
-    //                     Config.get_mount_path(i).c_str(), sizeof(fujiDisk::filename));
-    //             _fnDisks[i].host_slot = Config.get_mount_host_slot(i);
-    //             if (Config.get_mount_mode(i) == fnConfig::mount_modes::MOUNTMODE_WRITE)
-    //                 _fnDisks[i].access_mode = DISK_ACCESS_MODE_WRITE;
-    //             else
-    //                 _fnDisks[i].access_mode = DISK_ACCESS_MODE_READ;
-    //         }
-    //     }
-    // }
+        if (Config.get_mount_host_slot(i) != HOST_SLOT_INVALID)
+        {
+            if (Config.get_mount_host_slot(i) >= 0 && Config.get_mount_host_slot(i) <= MAX_HOSTS)
+            {
+                strlcpy(_fnDisks[i].filename,
+                        Config.get_mount_path(i).c_str(), sizeof(fujiDisk::filename));
+                _fnDisks[i].host_slot = Config.get_mount_host_slot(i);
+                if (Config.get_mount_mode(i) == fnConfig::mount_modes::MOUNTMODE_WRITE)
+                    _fnDisks[i].access_mode = DISK_ACCESS_MODE_WRITE;
+                else
+                    _fnDisks[i].access_mode = DISK_ACCESS_MODE_READ;
+            }
+        }
+    }
 }
 
 // Temporary(?) function while we move from old config storage to new
 void drivewireFuji::_populate_config_from_slots()
 {
-    // for (int i = 0; i < MAX_HOSTS; i++)
-    // {
-    //     fujiHostType htype = _fnHosts[i].get_type();
-    //     const char *hname = _fnHosts[i].get_hostname();
+    for (int i = 0; i < MAX_HOSTS; i++)
+    {
+        fujiHostType htype = _fnHosts[i].get_type();
+        const char *hname = _fnHosts[i].get_hostname();
 
-    //     if (hname[0] == '\0')
-    //     {
-    //         Config.clear_host(i);
-    //     }
-    //     else
-    //     {
-    //         Config.store_host(i, hname,
-    //                           htype == HOSTTYPE_TNFS ? fnConfig::host_types::HOSTTYPE_TNFS : fnConfig::host_types::HOSTTYPE_SD);
-    //     }
-    // }
+        if (hname[0] == '\0')
+        {
+            Config.clear_host(i);
+        }
+        else
+        {
+            Config.store_host(i, hname,
+                              htype == HOSTTYPE_TNFS ? fnConfig::host_types::HOSTTYPE_TNFS : fnConfig::host_types::HOSTTYPE_SD);
+        }
+    }
 
-    // for (int i = 0; i < MAX_DISK_DEVICES; i++)
-    // {
-    //     if (_fnDisks[i].host_slot >= MAX_HOSTS || _fnDisks[i].filename[0] == '\0')
-    //         Config.clear_mount(i);
-    //     else
-    //         Config.store_mount(i, _fnDisks[i].host_slot, _fnDisks[i].filename,
-    //                            _fnDisks[i].access_mode == DISK_ACCESS_MODE_WRITE ? fnConfig::mount_modes::MOUNTMODE_WRITE : fnConfig::mount_modes::MOUNTMODE_READ);
-    // }
+    for (int i = 0; i < MAX_DISK_DEVICES; i++)
+    {
+        if (_fnDisks[i].host_slot >= MAX_HOSTS || _fnDisks[i].filename[0] == '\0')
+            Config.clear_mount(i);
+        else
+            Config.store_mount(i, _fnDisks[i].host_slot, _fnDisks[i].filename,
+                               _fnDisks[i].access_mode == DISK_ACCESS_MODE_WRITE ? fnConfig::mount_modes::MOUNTMODE_WRITE : fnConfig::mount_modes::MOUNTMODE_READ);
+    }
 }
 
 // AUX1 is our index value (from 0 to DRIVEWIRE_HISPEED_LOWEST_INDEX)
@@ -1627,31 +1623,18 @@ void drivewireFuji::drivewire_enable_udpstream()
 // Initializes base settings and adds our devices to the DRIVEWIRE bus
 void drivewireFuji::setup(systemBus *drivewirebus)
 {
-    // // set up Fuji device
-    // _drivewire_bus = drivewirebus;
+    // set up Fuji device
+    _drivewire_bus = drivewirebus;
 
-    // _populate_slots_from_config();
+    _populate_slots_from_config();
 
-    // insert_boot_device(Config.get_general_boot_mode());
+    insert_boot_device(Config.get_general_boot_mode());
 
-    // // Disable booting from CONFIG if our settings say to turn it off
-    // boot_config = Config.get_general_config_enabled();
+    // Disable booting from CONFIG if our settings say to turn it off
+    boot_config = Config.get_general_config_enabled();
 
-    // //Disable status_wait if our settings say to turn it off
-    // status_wait_enabled = Config.get_general_status_wait_enabled();
-
-    // // Add our devices to the DRIVEWIRE bus
-    // for (int i = 0; i < MAX_DISK_DEVICES; i++)
-    //     _drivewire_bus->addDevice(&_fnDisks[i].disk_dev, DRIVEWIRE_DEVICEID_DISK + i);
-
-    // for (int i = 0; i < MAX_NETWORK_DEVICES; i++)
-    //     _drivewire_bus->addDevice(&drivewireNetDevs[i], DRIVEWIRE_DEVICEID_FN_NETWORK + i);
-
-    // _drivewire_bus->addDevice(&_cassetteDev, DRIVEWIRE_DEVICEID_CASSETTE);
-    // cassette()->set_buttons(Config.get_cassette_buttons());
-    // cassette()->set_pulldown(Config.get_cassette_pulldown());
-
-    cassette()->setup();
+    //Disable status_wait if our settings say to turn it off
+    status_wait_enabled = Config.get_general_status_wait_enabled();
 
 }
 
@@ -1660,179 +1643,10 @@ drivewireDisk *drivewireFuji::bootdisk()
     return &_bootDisk;
 }
 
-void drivewireFuji::drivewire_process(uint32_t commanddata, uint8_t checksum)
-{
-    // cmdFrame.commanddata = commanddata;
-    // cmdFrame.checksum = checksum;
-
-    // Debug_println("drivewireFuji::drivewire_process() called");
-
-    // switch (cmdFrame.comnd)
-    // {
-    // case FUJICMD_HDRIVEWIRE_INDEX:
-    //     drivewire_ack();
-    //     drivewire_high_speed();
-    //     break;
-    // case FUJICMD_SET_HDRIVEWIRE_INDEX:
-    //     drivewire_ack();
-    //     drivewire_set_hdrivewire_index();
-    //     break;
-    // case FUJICMD_STATUS:
-    //     drivewire_ack();
-    //     drivewire_status();
-    //     break;
-    // case FUJICMD_RESET:
-    //     drivewire_ack();
-    //     drivewire_reset_fujinet();
-    //     break;
-    // case FUJICMD_SCAN_NETWORKS:
-    //     drivewire_ack();
-    //     drivewire_net_scan_networks();
-    //     break;
-    // case FUJICMD_GET_SCAN_RESULT:
-    //     drivewire_ack();
-    //     drivewire_net_scan_result();
-    //     break;
-    // case FUJICMD_SET_SSID:
-    //     drivewire_ack();
-    //     drivewire_net_set_ssid();
-    //     break;
-    // case FUJICMD_GET_SSID:
-    //     drivewire_ack();
-    //     drivewire_net_get_ssid();
-    //     break;
-    // case FUJICMD_GET_WIFISTATUS:
-    //     drivewire_ack();
-    //     drivewire_net_get_wifi_status();
-    //     break;
-    // case FUJICMD_MOUNT_HOST:
-    //     drivewire_ack();
-    //     drivewire_mount_host();
-    //     break;
-    // case FUJICMD_MOUNT_IMAGE:
-    //     drivewire_ack();
-    //     drivewire_disk_image_mount();
-    //     break;
-    // case FUJICMD_OPEN_DIRECTORY:
-    //     drivewire_ack();
-    //     drivewire_open_directory();
-    //     break;
-    // case FUJICMD_READ_DIR_ENTRY:
-    //     drivewire_ack();
-    //     drivewire_read_directory_entry();
-    //     break;
-    // case FUJICMD_CLOSE_DIRECTORY:
-    //     drivewire_ack();
-    //     drivewire_close_directory();
-    //     break;
-    // case FUJICMD_GET_DIRECTORY_POSITION:
-    //     drivewire_ack();
-    //     drivewire_get_directory_position();
-    //     break;
-    // case FUJICMD_SET_DIRECTORY_POSITION:
-    //     drivewire_ack();
-    //     drivewire_set_directory_position();
-    //     break;
-    // case FUJICMD_READ_HOST_SLOTS:
-    //     drivewire_ack();
-    //     drivewire_read_host_slots();
-    //     break;
-    // case FUJICMD_WRITE_HOST_SLOTS:
-    //     drivewire_ack();
-    //     drivewire_write_host_slots();
-    //     break;
-    // case FUJICMD_READ_DEVICE_SLOTS:
-    //     drivewire_ack();
-    //     drivewire_read_device_slots();
-    //     break;
-    // case FUJICMD_WRITE_DEVICE_SLOTS:
-    //     drivewire_ack();
-    //     drivewire_write_device_slots();
-    //     break;
-    // case FUJICMD_GET_WIFI_ENABLED:
-    //     drivewire_ack();
-    //     drivewire_net_get_wifi_enabled();
-    //     break;
-    // case FUJICMD_UNMOUNT_IMAGE:
-    //     drivewire_ack();
-    //     drivewire_disk_image_umount();
-    //     break;
-    // case FUJICMD_GET_ADAPTERCONFIG:
-    //     drivewire_ack();
-    //     drivewire_get_adapter_config();
-    //     break;
-    // case FUJICMD_NEW_DISK:
-    //     drivewire_ack();
-    //     drivewire_new_disk();
-    //     break;
-    // case FUJICMD_UNMOUNT_HOST:
-    //     drivewire_ack();
-    //     drivewire_unmount_host();
-    //     break;
-    // case FUJICMD_SET_DEVICE_FULLPATH:
-    //     drivewire_ack();
-    //     drivewire_set_device_filename();
-    //     break;
-    // case FUJICMD_SET_HOST_PREFIX:
-    //     drivewire_ack();
-    //     drivewire_set_host_prefix();
-    //     break;
-    // case FUJICMD_GET_HOST_PREFIX:
-    //     drivewire_ack();
-    //     drivewire_get_host_prefix();
-    //     break;
-    // case FUJICMD_SET_DRIVEWIRE_EXTERNAL_CLOCK:
-    //     drivewire_ack();
-    //     drivewire_set_drivewire_external_clock();
-    //     break;
-    // case FUJICMD_WRITE_APPKEY:
-    //     drivewire_ack();
-    //     drivewire_write_app_key();
-    //     break;
-    // case FUJICMD_READ_APPKEY:
-    //     drivewire_ack();
-    //     drivewire_read_app_key();
-    //     break;
-    // case FUJICMD_OPEN_APPKEY:
-    //     drivewire_ack();
-    //     drivewire_open_app_key();
-    //     break;
-    // case FUJICMD_CLOSE_APPKEY:
-    //     drivewire_ack();
-    //     drivewire_close_app_key();
-    //     break;
-    // case FUJICMD_GET_DEVICE_FULLPATH:
-    //     drivewire_ack();
-    //     drivewire_get_device_filename();
-    //     break;
-    // case FUJICMD_CONFIG_BOOT:
-    //     drivewire_ack();
-    //     drivewire_set_boot_config();
-    //     break;
-    // case FUJICMD_COPY_FILE:
-    //     drivewire_ack();
-    //     drivewire_copy_file();
-    //     break;
-    // case FUJICMD_MOUNT_ALL:
-    //     drivewire_ack();
-    //     mount_all();
-    //     break;
-    // case FUJICMD_SET_BOOT_MODE:
-    //     drivewire_ack();
-    //     drivewire_set_boot_mode();
-    //     break;
-    // case FUJICMD_ENABLE_UDPSTREAM:
-    //     drivewire_ack();
-    //     drivewire_enable_udpstream();
-    //     break;
-    // default:
-    //     drivewire_nak();
-    // }
-}
-
 int drivewireFuji::get_disk_id(int drive_slot)
 {
-    return _fnDisks[drive_slot].disk_dev.id();
+    return drive_slot; // silly
+    //return _fnDisks[drive_slot].disk_dev.id();
 }
 
 std::string drivewireFuji::get_host_prefix(int host_slot)
