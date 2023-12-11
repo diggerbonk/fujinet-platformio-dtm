@@ -27,6 +27,8 @@ static QueueHandle_t drivewire_evt_queue = NULL;
 
 drivewireDload dload;
 
+#define DEBOUNCE_THRESHOLD_US 50000ULL
+
 static void IRAM_ATTR drivewire_isr_handler(void *arg)
 {
     // Generic default interrupt handler
@@ -37,22 +39,23 @@ static void IRAM_ATTR drivewire_isr_handler(void *arg)
 static void drivewire_intr_task(void *arg)
 {
     uint32_t gpio_num;
+    int64_t d;
+
     systemBus *bus = (systemBus *)arg;
 
     while (true)
     {
         if (xQueueReceive(drivewire_evt_queue, &gpio_num, portMAX_DELAY))
         {
+            esp_rom_delay_us(DEBOUNCE_THRESHOLD_US);
+
             if (gpio_num == PIN_CASS_MOTOR && gpio_get_level((gpio_num_t)gpio_num))
             {
-                Debug_printv("Cassette motor enabled. Send boot loader!");
                 bus->motorActive = true;
             }
             else
             {
-                Debug_printv("Cassette motor off");
                 bus->motorActive = false;
-                bus->getCassette()->stop();
             }
         }
 
@@ -77,33 +80,138 @@ void systemBus::op_reset()
 void systemBus::op_readex()
 {
     drivewireDisk *d = nullptr;
-    uint16_t c=0;
-    
+    uint16_t c = 0;
+
     drive_num = fnUartBUS.read();
 
     lsn = fnUartBUS.read() << 16;
     lsn |= fnUartBUS.read() << 8;
     lsn |= fnUartBUS.read();
 
-    Debug_printv("OP_READEX: DRIVE %3u - SECTOR %8lu",drive_num,lsn);
+    Debug_printv("OP_READEX: DRIVE %3u - SECTOR %8lu", drive_num, lsn);
 
     d = &theFuji.get_disks(drive_num)->disk_dev;
 
     if (!d)
     {
-        Debug_printv("Invalid drive #%3u",drive_num);
+        Debug_printv("Invalid drive #%3u", drive_num);
         return;
     }
 
-    d->read(lsn,sector_data);
+    if (!d->device_active)
+    {
+        Debug_printv("Device not active.");
+    }
 
-    fnUartBUS.write(sector_data,MEDIA_BLOCK_SIZE);
+    d->read(lsn, sector_data);
+
+    fnUartBUS.write(sector_data, MEDIA_BLOCK_SIZE);
 
     fnUartBUS.read();
     fnUartBUS.read();
 
     fnUartBUS.write(0x00); // todo: proper err handling and cksum
     fnUartBUS.write(0x00); // todo: proper err handling and cksum
+}
+
+void systemBus::op_write()
+{
+    drivewireDisk *d = nullptr;
+    uint16_t c = 0;
+
+    drive_num = fnUartBUS.read();
+
+    lsn = fnUartBUS.read() << 16;
+    lsn |= fnUartBUS.read() << 8;
+    lsn |= fnUartBUS.read();
+
+    size_t s = fnUartBUS.readBytes(sector_data,MEDIA_BLOCK_SIZE);
+
+    if (s != MEDIA_BLOCK_SIZE)
+    {
+        Debug_printv("Insufficient # of bytes for write, total recvd: %u",s);
+        fnUartBUS.flush_input();
+        return;
+    }
+
+    // Todo handle checksum.
+    fnUartBUS.read();
+    fnUartBUS.read();
+
+    Debug_printv("OP_WRITE: DRIVE %3u - SECTOR %8lu", drive_num, lsn);
+
+    d = &theFuji.get_disks(drive_num)->disk_dev;
+
+    if (!d)
+    {
+        Debug_printv("Invalid drive #%3u", drive_num);
+        return;
+    }
+
+    if (!d->device_active)
+    {
+        Debug_printv("Device not active.");
+    }
+
+    d->write(lsn,sector_data);
+
+    fnUartBUS.write(0x00); // TODO: Checksum
+}
+
+void systemBus::op_fuji()
+{
+    Debug_printv("OP FUJI!");
+    while (fnUartBUS.available())
+        Debug_printf("%02x ", fnUartBUS.read());
+    Debug_printf("\n");
+}
+
+void systemBus::op_unhandled(uint8_t c)
+{
+    Debug_printv("Unhandled opcode: %02x",c);
+
+    while (fnUartBUS.available())
+        Debug_printf("%02x ",fnUartBUS.read());
+
+    fnUartBUS.flush_input();
+}
+
+void systemBus::op_time()
+{
+    time_t tt = time(nullptr);
+    struct tm * now = localtime(&tt);
+
+    now->tm_mon++;
+
+    Debug_printf("Returning %02d/%02d/%02d %02d:%02d:%02d\n", now->tm_year, now->tm_mon, now->tm_mday, now->tm_hour, now->tm_min, now->tm_sec);
+
+    fnUartBUS.write(now->tm_year-1900);
+    fnUartBUS.write(now->tm_mon);
+    fnUartBUS.write(now->tm_mday);
+    fnUartBUS.write(now->tm_hour);
+    fnUartBUS.write(now->tm_min);
+    fnUartBUS.write(now->tm_sec);
+}
+
+void systemBus::op_init()
+{
+    Debug_printv("OP_INIT");
+}
+
+void systemBus::op_dwinit()
+{
+    Debug_printv("OP_DWINIT - Sending feature byte 0x%02x",DWINIT_FEATURES);
+    fnUartBUS.write(DWINIT_FEATURES);
+}
+
+void systemBus::op_getstat()
+{
+    Debug_printv("OP_GETSTAT: 0x%02x",fnUartBUS.read());
+}
+
+void systemBus::op_setstat()
+{
+    Debug_printv("OP_SETSTAT: 0x%02x",fnUartBUS.read());
 }
 
 // Read and process a command frame from DRIVEWIRE
@@ -123,6 +231,30 @@ void systemBus::_drivewire_process_cmd()
         break;
     case OP_READEX:
         op_readex();
+        break;
+    case OP_WRITE:
+        op_write();
+        break;
+    case OP_TIME:
+        op_time();
+        break;
+    case OP_INIT:
+        op_init();
+        break;
+    case OP_DWINIT:
+        op_dwinit();
+        break;
+    case OP_GETSTAT:
+        op_getstat();
+        break;
+    case OP_SETSTAT:
+        op_setstat();
+        break;
+    case OP_FUJI:
+        op_fuji();
+        break;
+    default:
+        op_unhandled(c);
         break;
     }
 }
@@ -150,14 +282,10 @@ void systemBus::service()
             _cassetteDev->play();
             return;
         }
-        else
-        {
-            _cassetteDev->stop();
-        }
     }
 
     if (fnUartBUS.available())
-       _drivewire_process_cmd();
+        _drivewire_process_cmd();
 
     // dload.dload_process();
 }
@@ -187,7 +315,7 @@ void systemBus::setup()
     gpio_config(&io_conf);
     gpio_isr_handler_add((gpio_num_t)PIN_CASS_MOTOR, drivewire_isr_handler, (void *)PIN_CASS_MOTOR);
 
-    // Start in DLOAD mode
+    // Start in DRIVEWIRE mode
     fnUartBUS.begin(57600);
     Debug_printv("DRIVEWIRE MODE");
 }

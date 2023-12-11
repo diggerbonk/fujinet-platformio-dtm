@@ -16,51 +16,44 @@
 
 #define SAMPLE_DELAY_US 89
 
-FILE *casf = NULL;
-uint8_t *casbuf = NULL;
-
-static void _play(void* arg)
+/**
+ * @brief Handle when motor active, and send tape via DAC
+ * @note This routine stays active until tape is done streaming.
+ */
+void drivewireCassette::play()
 {
-    drivewireCassette *cass = (drivewireCassette *)arg;
+    FILE *casf = fsFlash.file_open("/hdbcc2.raw", "r");
+    uint8_t *casbuf = NULL;
+    size_t sz = 0UL;
+
+    Debug_printv("Reading /hdbcc2.raw");
     
-    casf = fsFlash.file_open("/hdbcc2.raw","r");
-
-    Debug_printf("PLAY\n");
-
-    if (!casf)
-    {
-        Debug_printv("Could not open cassette file. Aborting.");
-        casf = NULL;
-        return;
-    }
-    else
-    {
-        Debug_printv("cassette file opened.");
-    }
-
-    size_t sz=0UL;
-
-    fseek(casf,0UL,SEEK_END);
+    // Determine and allocate memory for image
+    fseek(casf, 0UL, SEEK_END);
     sz = ftell(casf);
     casbuf = (uint8_t *)malloc(sz);
-    fseek(casf,0UL,SEEK_SET);
+    fseek(casf, 0UL, SEEK_SET);
 
-    fread(casbuf,sizeof(uint8_t),sz,casf);
+    // Read image into memory
+    fread(casbuf, sizeof(uint8_t), sz, casf);
+    
+    // Done with file
+    fclose(casf);
 
-    if (casf)
-    {
-        fclose(casf);
-        casf = NULL;
-    }
-
+    // Now play it back.
     Debug_printv("Enabling DAC.")
-    dac_output_enable(DAC_CHANNEL_1);
+        dac_output_enable(DAC_CHANNEL_1);
 
     Debug_printv("sending data.");
 
-    for (size_t i=0;i<sz;i++)
+    for (size_t i = 0; i < sz; i++)
     {
-        dac_output_voltage(DAC_CHANNEL_1,casbuf[i]);
+        dac_output_voltage(DAC_CHANNEL_1, casbuf[i]);
+
+        // Abort if motor drops.
+        if (!DRIVEWIRE.motorActive)
+            break;
+
         esp_rom_delay_us(SAMPLE_DELAY_US);
     }
 
@@ -68,49 +61,14 @@ static void _play(void* arg)
 
     dac_output_disable(DAC_CHANNEL_1);
 
+    // Deallocate casbuf.
     if (casbuf)
+    {
         free(casbuf);
+        casbuf = NULL;
+    }
 
     Debug_printv("Tape done.");
-    vTaskDelete(NULL);
-}
-
-/**
- * @brief Handle when motor active, and send tape via DAC
- * @note This routine stays active until tape is done streaming.
- */
-void drivewireCassette::play()
-{
-    if (playTask)
-        return;
-
-    Debug_printv("Play tape");    
-    xTaskCreate(_play,"playTask",4096,this,99,&playTask);
-}
-
-/**
- * @brief Handle when motor inactive, stop task if needed
- */
-void drivewireCassette::stop()
-{
-    if (playTask)
-    {
-        Debug_printv("Stop tape");
-        
-        if (casf)
-        {
-            fclose(casf);
-        }
-        
-        vTaskDelete(playTask);
-        playTask=NULL;
-
-        if (casbuf)
-        {
-            free(casbuf);
-            casbuf=NULL;
-        }
-    }
 }
 
 void drivewireCassette::setup()
