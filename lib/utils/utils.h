@@ -62,7 +62,8 @@ std::vector<uint8_t> util_tokenize_uint8(std::string s, char c = ' ');
 std::string util_remove_spaces(const std::string &s);
 
 void util_strip_nonascii(std::string &s);
-void util_clean_devicespec(uint8_t* buf, unsigned short len);
+void util_devicespec_fix_9b(uint8_t* buf, unsigned short len);
+std::string util_devicespec_fix_for_parsing(std::string deviceSpec, std::string prefix, bool is_directory_read, bool process_fs_dot);
 
 bool util_string_value_is_true(std::string value);
 bool util_string_value_is_true(const char *value);
@@ -87,5 +88,14 @@ char util_petscii_to_ascii(char c);
 char util_ascii_to_petscii(char c);
 void util_petscii_to_ascii_str(std::string &s);
 void util_ascii_to_petscii_str(std::string &s);
+
+// generic hex dump for debug output
+char *util_hexdump(const void *buf, size_t len);
+
+// check if a double is very close to an integer
+bool isApproximatelyInteger(double value, double tolerance = 1e-6);
+
+// ensure string starts with a "/"
+std::string prependSlash(const std::string& str);
 
 #endif // _FN_UTILS_H

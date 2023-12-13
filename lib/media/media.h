@@ -31,10 +31,17 @@
 
 #ifdef BUILD_APPLE
 # include "apple/mediaType.h"
+# include "apple/mediaTypeDO.h"
 # include "apple/mediaTypePO.h"
 # include "apple/mediaTypeWOZ.h"
 # include "apple/mediaTypeDSK.h"
-#endif 
+#endif
+
+#ifdef BUILD_MAC
+#include "mac/mediaType.h"
+#include "mac/mediaTypeMOOF.h"
+#include "mac/mediaTypeDCD.h"
+#endif
 
 #ifdef BUILD_S100
 # include "adam/mediaType.h"
@@ -44,6 +51,16 @@
 #ifdef BUILD_RC2014
 # include "rc2014/mediaType.h"
 # include "rc2014/mediaTypeIMG.h"
+#endif
+
+#ifdef BUILD_H89
+# include "h89/mediaType.h"
+# include "h89/mediaTypeIMG.h"
+#endif
+
+#ifdef BUILD_COCO
+# include "drivewire/mediaType.h"
+# include "drivewire/mediaTypeDSK.h"
 #endif
 
 #ifdef NEW_TARGET

@@ -38,6 +38,17 @@ void fnConfig::store_general_config_enabled(bool config_enabled)
     _general.config_enabled = config_enabled;
     _dirty = true;
 }
+
+// Saves alternative config boot disk filename
+void fnConfig::store_config_filename(const std::string &filename)
+{
+    if (_general.config_filename == filename)
+        return;
+
+    _general.config_filename = filename;
+    _dirty = true;
+}
+
 void fnConfig::store_general_status_wait_enabled(bool status_wait_enabled)
 {
     if (_general.status_wait_enabled == status_wait_enabled)
@@ -54,11 +65,18 @@ void fnConfig::store_general_encrypt_passphrase(bool encrypt_passphrase)
     // It changed, so either we were encrypting before and it needs decrypting, or v.v.
     // Either way, we will simply reverse the buffer, as enc/dec are isomorphic
     _wifi.passphrase = crypto.crypt(_wifi.passphrase);
-    // Debug_printf("fnConfig::store_general_encrypt_passphrase passphrase is now: >%s<\n", _wifi.passphrase.c_str());
-    // Debug_printf("fnConfig::store_general_encrypt_passphrase setting _general.encrypt_passphrase to %d\n", encrypt_passphrase);
     _general.encrypt_passphrase = encrypt_passphrase;
+
+    // Do the same to any enabled stored wifi configs
+    for (int i = 0; i < MAX_WIFI_STORED; i++)
+    {
+        if (_wifi_stored[i].enabled) {
+            _wifi_stored[i].passphrase = crypto.crypt(_wifi_stored[i].passphrase);
+        }
+    }
+
     _dirty = true;
-    
+
 }
 bool fnConfig::get_general_encrypt_passphrase()
 {
@@ -68,7 +86,7 @@ void fnConfig::store_general_boot_mode(uint8_t boot_mode)
 {
     if (_general.boot_mode == boot_mode)
         return;
-    
+
     _general.boot_mode = boot_mode;
     _dirty = true;
 }
@@ -132,6 +150,10 @@ void fnConfig::_read_section_general(std::stringstream &ss)
             else if (strcasecmp(name.c_str(), "configenabled") == 0)
             {
                 _general.config_enabled = util_string_value_is_true(value);
+            }
+            else if (strcasecmp(name.c_str(), "altconfigfile") == 0)
+            {
+                _general.config_filename = value;
             }
             else if (strcasecmp(name.c_str(), "boot_mode") == 0)
             {

@@ -5,6 +5,7 @@
 #include "html_printer.h"
 #include "epson_80.h"
 #include "fnSystem.h"
+#include "../../hardware/led.h"
 
 constexpr const char *const iwmPrinter::printer_model_str[PRINTER_INVALID];
 
@@ -17,6 +18,7 @@ iwmPrinter::iwmPrinter(FileSystem *filesystem, printer_type printer_type)
 iwmPrinter::~iwmPrinter()
 {
     delete _pptr;
+    _pptr = nullptr;
 }
 
 void iwmPrinter::send_status_reply_packet()
@@ -181,6 +183,7 @@ void iwmPrinter::print_from_cpm(uint8_t c)
 
 void iwmPrinter::process(iwm_decoded_cmd_t cmd)
 {
+    fnLedManager.set(LED_BUS, true);
     switch (cmd.command)
     {
     case 0x00: // status
@@ -200,12 +203,16 @@ void iwmPrinter::process(iwm_decoded_cmd_t cmd)
         iwm_return_badcmd(cmd);
         break;
     }
+    fnLedManager.set(LED_BUS, false);
 }
 
 void iwmPrinter::set_printer_type(iwmPrinter::printer_type printer_type)
 {
     // Destroy any current printer emu object
-    delete _pptr;
+    if (_pptr != nullptr)
+    {
+        delete _pptr;
+    }
 
     _ptype = printer_type;
     switch (printer_type)

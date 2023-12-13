@@ -415,6 +415,45 @@ void fnHttpServiceConfigurator::config_apetime_enabled(std::string enabled)
     Config.save();
 }
 
+void fnHttpServiceConfigurator::config_cpm_enabled(std::string cpm_enabled)
+{
+    Debug_printf("New CP/M Enable Value: %s\n", cpm_enabled.c_str());
+    Config.store_cpm_enabled(atoi(cpm_enabled.c_str()));
+    Config.save();
+}
+
+void fnHttpServiceConfigurator::config_cpm_ccp(std::string cpm_ccp)
+{
+    // Use $ as a flag to reset to default CCP since empty field never gets to here
+    if ( !strcmp(cpm_ccp.c_str(), "$") )
+    {
+        Debug_printf("Set CP/M CCP File to DEFAULT\n");
+        Config.store_ccp_filename("");
+    }
+    else
+    {
+        Debug_printf("Set CP/M CCP File: %s\n", cpm_ccp.c_str());
+        Config.store_ccp_filename(cpm_ccp.c_str());
+    }
+    Config.save();
+}
+
+void fnHttpServiceConfigurator::config_alt_filename(std::string alt_cfg)
+{
+    // Use $ as a flag to reset to default since empty field never gets to here
+    if ( !strcmp(alt_cfg.c_str(), "$") )
+    {
+        Debug_printf("Set CONFIG boot disk to DEFAULT\n");
+        Config.store_config_filename("");
+    }
+    else
+    {
+        Debug_printf("Set Alternate CONFIG boot disk: %s\n", alt_cfg.c_str());
+        Config.store_config_filename(alt_cfg.c_str());
+    }
+    Config.save();
+}
+
 int fnHttpServiceConfigurator::process_config_post(const char *postdata, size_t postlen)
 {
 #ifdef DEBUG
@@ -428,7 +467,7 @@ int fnHttpServiceConfigurator::process_config_post(const char *postdata, size_t 
 
     free(decoded_buf);
 
-    for (std::map<std::string, std::string>::iterator i = postvals.begin(); i != postvals.end(); i++)
+    for (std::map<std::string, std::string>::iterator i = postvals.begin(); i != postvals.end(); ++i)
     {
         if (i->first.compare("printermodel1") == 0)
         {
@@ -505,6 +544,18 @@ int fnHttpServiceConfigurator::process_config_post(const char *postdata, size_t 
         else if (i->first.compare("apetime_enabled") == 0)
         {
             config_apetime_enabled(i->second);
+        }
+        else if (i->first.compare("cpm_enabled") == 0)
+        {
+            config_cpm_enabled(i->second);
+        }
+        else if (i->first.compare("cpm_ccp") == 0)
+        {
+            config_cpm_ccp(i->second);
+        }
+        else if (i->first.compare("alt_cfg") == 0)
+        {
+            config_alt_filename(i->second);
         }
     }
 

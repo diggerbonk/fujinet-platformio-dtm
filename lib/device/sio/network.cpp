@@ -7,7 +7,10 @@
 #include "network.h"
 
 #include <cstring>
+#include <string>
 #include <algorithm>
+#include <vector>
+#include <memory>
 
 #include "../../include/debug.h"
 #include "../../include/pinmap.h"
@@ -25,6 +28,8 @@
 #include "HTTP.h"
 #include "SSH.h"
 #include "SMB.h"
+
+#include "ProtocolParser.h"
 
 using namespace std;
 
@@ -63,12 +68,17 @@ sioNetwork::~sioNetwork()
     transmitBuffer->clear();
     specialBuffer->clear();
 
-    if (receiveBuffer != nullptr)
-        delete receiveBuffer;
-    if (transmitBuffer != nullptr)
-        delete transmitBuffer;
-    if (specialBuffer != nullptr)
-        delete specialBuffer;
+    delete receiveBuffer;
+    delete transmitBuffer;
+    delete specialBuffer;
+    receiveBuffer = nullptr;
+    transmitBuffer = nullptr;
+    specialBuffer = nullptr;
+
+    if (protocol != nullptr)
+        delete protocol;
+
+    protocol = nullptr;
 }
 
 /** SIO COMMANDS ***************************************************************/
@@ -83,6 +93,14 @@ void sioNetwork::sio_open()
     Debug_println("sioNetwork::sio_open()\n");
 
     sio_ack();
+
+    newData = (uint8_t *)malloc(NEWDATA_SIZE);
+
+    if (newData == nullptr)
+    {
+        Debug_printv("Could not allocate write buffer\n");
+        sio_error();
+    }
 
     channelMode = PROTOCOL;
 
@@ -103,6 +121,12 @@ void sioNetwork::sio_open()
         protocol = nullptr;
     }
 
+    if (protocolParser != nullptr)
+    {
+        delete protocolParser;
+        protocolParser = nullptr;
+    }
+
     // Reset status buffer
     status.reset();
 
@@ -112,6 +136,18 @@ void sioNetwork::sio_open()
     if (protocol == nullptr)
     {
         // invalid devicespec error already passed in.
+        if (protocolParser != nullptr)
+        {
+            delete protocolParser;
+            protocolParser = nullptr;
+        }
+
+        if (newData != nullptr)
+        {
+            free(newData);
+            newData = nullptr;
+        }
+
         sio_error();
         return;
     }
@@ -123,6 +159,18 @@ void sioNetwork::sio_open()
         Debug_printf("Protocol unable to make connection. Error: %d\n", status.error);
         delete protocol;
         protocol = nullptr;
+        if (protocolParser != nullptr)
+        {
+            delete protocolParser;
+            protocolParser = nullptr;
+        }
+
+        if (newData != nullptr)
+        {
+            free(newData);
+            newData = nullptr;
+        }
+
         sio_error();
         return;
     }
@@ -131,7 +179,7 @@ void sioNetwork::sio_open()
     timer_start();
 
     // Go ahead and send an interrupt, so Atari knows to get status.
-    sio_assert_interrupt();
+    protocol->forceStatus = true;
 
     // TODO: Finally, go ahead and let the parsers know
     json = new FNJSON();
@@ -155,6 +203,12 @@ void sioNetwork::sio_close()
 
     status.reset();
 
+    if (protocolParser != nullptr)
+    {
+        delete protocolParser;
+        protocolParser = nullptr;
+    }
+
     // If no protocol enabled, we just signal complete, and return.
     if (protocol == nullptr)
     {
@@ -168,15 +222,24 @@ void sioNetwork::sio_close()
     else
         sio_complete();
 
-    Debug_printf("Before protocol delete %lu\n",esp_get_free_heap_size());
+    Debug_printv("Before protocol delete %lu\n",esp_get_free_internal_heap_size());
     // Delete the protocol object
     delete protocol;
     protocol = nullptr;
 
     if (json != nullptr)
+    {
         delete json;
+        json = nullptr;
+    }
 
-    Debug_printf("After protocol delete %lu\n",esp_get_free_heap_size());
+    if (newData != nullptr)
+    {
+        free(newData);
+        newData = nullptr;
+    }
+
+    Debug_printv("After protocol delete %lu\n",esp_get_free_internal_heap_size());
 }
 
 /**
@@ -206,6 +269,12 @@ void sioNetwork::sio_read()
     // If protocol isn't connected, then return not connected.
     if (protocol == nullptr)
     {
+        if (protocolParser != nullptr)
+        {
+            delete protocolParser;
+            protocolParser = nullptr;
+        }
+
         status.error = NETWORK_ERROR_NOT_CONNECTED;
         sio_error();
         return;
@@ -217,6 +286,7 @@ void sioNetwork::sio_read()
     // And send off to the computer
     bus_to_computer((uint8_t *)receiveBuffer->data(), num_bytes, err);
     receiveBuffer->erase(0, num_bytes);
+    receiveBuffer->shrink_to_fit();
 }
 
 /**
@@ -262,15 +332,15 @@ bool sioNetwork::sio_read_channel(unsigned short num_bytes)
 void sioNetwork::sio_write()
 {
     unsigned short num_bytes = sio_get_aux();
-    uint8_t *newData;
     bool err = false;
 
-    newData = (uint8_t *)malloc(num_bytes);
     Debug_printf("sioNetwork::sio_write( %d bytes)\n", num_bytes);
 
     if (newData == nullptr)
     {
         Debug_printf("Could not allocate %u bytes.\n", num_bytes);
+        sio_error();
+        return;
     }
 
     sio_ack();
@@ -278,6 +348,11 @@ void sioNetwork::sio_write()
     // If protocol isn't connected, then return not connected.
     if (protocol == nullptr)
     {
+        if (protocolParser != nullptr)
+        {
+            delete protocolParser;
+            protocolParser = nullptr;
+        }
         status.error = NETWORK_ERROR_NOT_CONNECTED;
         sio_error();
         return;
@@ -286,7 +361,6 @@ void sioNetwork::sio_write()
     // Get the data from the Atari
     bus_to_peripheral(newData, num_bytes);
     *transmitBuffer += string((char *)newData, num_bytes);
-    free(newData);
 
     // Do the channel write
     err = sio_write_channel(num_bytes);
@@ -297,7 +371,9 @@ void sioNetwork::sio_write()
         sio_complete();
     }
     else
+    {
         sio_error();
+    }
 }
 
 /**
@@ -407,6 +483,8 @@ void sioNetwork::sio_status_channel()
         sio_status_channel_json(&status);
         break;
     }
+    // clear forced flag (first status after open)
+    protocol->forceStatus = false;
 
     // Serialize status into status bytes
     serialized_status[0] = status.rxBytesWaiting & 0xFF;
@@ -448,13 +526,17 @@ void sioNetwork::sio_set_prefix()
     memset(prefixSpec, 0, sizeof(prefixSpec));
 
     bus_to_peripheral(prefixSpec, sizeof(prefixSpec));
-    util_clean_devicespec(prefixSpec, sizeof(prefixSpec));
+    util_devicespec_fix_9b(prefixSpec, sizeof(prefixSpec));
 
     prefixSpec_str = string((const char *)prefixSpec);
     prefixSpec_str = prefixSpec_str.substr(prefixSpec_str.find_first_of(":") + 1);
     Debug_printf("sioNetwork::sio_set_prefix(%s)\n", prefixSpec_str.c_str());
 
-    if (prefixSpec_str == "..") // Devance path N:..
+    if (prefixSpec_str.empty())
+    {
+        prefix.clear();
+    }
+    else if (prefixSpec_str == ".." || prefixSpec_str == "<") // Devance path N:..
     {
         vector<int> pathLocations;
         for (int i = 0; i < prefix.size(); i++)
@@ -499,10 +581,6 @@ void sioNetwork::sio_set_prefix()
     else if (prefixSpec_str[0] == '/') // N:/DIR
     {
         prefix = prefixSpec_str;
-    }
-    else if (prefixSpec_str.empty())
-    {
-        prefix.clear();
     }
     else if (prefixSpec_str.find_first_of(":") != string::npos)
     {
@@ -550,7 +628,7 @@ void sioNetwork::sio_set_login()
 
     memset(loginSpec, 0, sizeof(loginSpec));
     bus_to_peripheral(loginSpec, sizeof(loginSpec));
-    util_clean_devicespec(loginSpec, sizeof(loginSpec));
+    util_devicespec_fix_9b(loginSpec, sizeof(loginSpec));
 
     login = string((char *)loginSpec);
     sio_complete();
@@ -565,7 +643,7 @@ void sioNetwork::sio_set_password()
 
     memset(passwordSpec, 0, sizeof(passwordSpec));
     bus_to_peripheral(passwordSpec, sizeof(passwordSpec));
-    util_clean_devicespec(passwordSpec, sizeof(passwordSpec));
+    util_devicespec_fix_9b(passwordSpec, sizeof(passwordSpec));
 
     password = string((char *)passwordSpec);
     sio_complete();
@@ -627,28 +705,35 @@ void sioNetwork::do_inquiry(unsigned char inq_cmd)
 
     // Ask protocol for dstats, otherwise get it locally.
     if (protocol != nullptr)
+    {
         inq_dstats = protocol->special_inquiry(inq_cmd);
+        Debug_printf("protocol special_inquiry returned %d\r\n", inq_dstats);
+    }
 
     // If we didn't get one from protocol, or unsupported, see if supported globally.
     if (inq_dstats == 0xFF)
     {
         switch (inq_cmd)
         {
-        case 0x20:
-        case 0x21:
-        case 0x23:
-        case 0x24:
-        case 0x2A:
-        case 0x2B:
-        case 0x2C:
-        case 0xFD:
-        case 0xFE:
+        case 0x20: // ' ' rename
+        case 0x21: // '!' delete
+        case 0x23: // '#' lock
+        case 0x24: // '$' unlock
+        case 0x2A: // '*' mkdir
+        case 0x2B: // '+' rmdir
+        case 0x2C: // ',' chdir/get prefix
+        case 0xFD: //     login
+        case 0xFE: //     password
             inq_dstats = 0x80;
             break;
-        case 0xFC:
+        case 0xFC: //     channel mode
             inq_dstats = 0x00;
             break;
-        case 0x30:
+        case 0xFB: // String Processing mode, only in JSON mode
+            if (channelMode == JSON)
+                inq_dstats = 0x00;
+            break;
+        case 0x30: // '0' set prefix
             inq_dstats = 0x40;
             break;
         case 'Z': // Set interrupt rate
@@ -693,6 +778,9 @@ void sioNetwork::sio_special_00()
         break;
     case 'Z':
         sio_set_timer_rate();
+        break;
+    case 0xFB: // JSON parameter wrangling
+        sio_set_json_parameters();
         break;
     case 0xFC: // SET CHANNEL MODE
         sio_set_channel_mode();
@@ -739,15 +827,15 @@ void sioNetwork::sio_special_80()
     // Handle commands that exist outside of an open channel.
     switch (cmdFrame.comnd)
     {
-    case 0x20: // RENAME
-    case 0x21: // DELETE
-    case 0x23: // LOCK
-    case 0x24: // UNLOCK
-    case 0x2A: // MKDIR
-    case 0x2B: // RMDIR
+    case 0x20: // RENAME  ' '
+    case 0x21: // DELETE  '!'
+    case 0x23: // LOCK    '#'
+    case 0x24: // UNLOCK  '$'
+    case 0x2A: // MKDIR   '*'
+    case 0x2B: // RMDIR   '+'
         sio_do_idempotent_command_80();
         return;
-    case 0x2C: // CHDIR
+    case 0x2C: // CHDIR   ','
         sio_set_prefix();
         return;
     case 'Q':
@@ -820,7 +908,7 @@ void sioNetwork::sio_process(uint32_t commanddata, uint8_t checksum)
 }
 
 /**
- * Check to see if PROCEED needs to be asserted, and assert if needed.
+ * Check to see if PROCEED needs to be asserted, and assert if needed (continue toggling PROCEED).
  */
 void sioNetwork::sio_poll_interrupt()
 {
@@ -828,6 +916,13 @@ void sioNetwork::sio_poll_interrupt()
     {
         if (protocol->interruptEnable == false)
             return;
+
+        /* assert interrupt if we need Status call from host to arrive */
+        if (protocol->forceStatus == true)
+        {
+            sio_assert_interrupt();
+            return;
+        }
 
         protocol->fromInterrupt = true;
         protocol->status(&status);
@@ -849,85 +944,57 @@ void sioNetwork::sio_poll_interrupt()
  */
 bool sioNetwork::instantiate_protocol()
 {
-    if (urlParser == nullptr)
+    if (!protocolParser)
     {
-        Debug_printf("sioNetwork::open_protocol() - urlParser is NULL. Aborting.\n");
-        return false; // error.
+        protocolParser = new ProtocolParser();
     }
-
-    // Convert to uppercase
-    transform(urlParser->scheme.begin(), urlParser->scheme.end(), urlParser->scheme.begin(), ::toupper);
-
-    if (urlParser->scheme == "TCP")
-    {
-        protocol = new NetworkProtocolTCP(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "UDP")
-    {
-        protocol = new NetworkProtocolUDP(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "TEST")
-    {
-        protocol = new NetworkProtocolTest(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "TELNET")
-    {
-        protocol = new NetworkProtocolTELNET(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "TNFS")
-    {
-        protocol = new NetworkProtocolTNFS(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "FTP")
-    {
-        protocol = new NetworkProtocolFTP(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "HTTP" || urlParser->scheme == "HTTPS")
-    {
-        protocol = new NetworkProtocolHTTP(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "SSH")
-    {
-        protocol = new NetworkProtocolSSH(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else if (urlParser->scheme == "SMB")
-    {
-        protocol = new NetworkProtocolSMB(receiveBuffer, transmitBuffer, specialBuffer);
-    }
-    else
-    {
-        Debug_printf("Invalid protocol: %s\n", urlParser->scheme.c_str());
-        return false; // invalid protocol.
-    }
+    
+    protocol = protocolParser->createProtocol(urlParser->scheme, receiveBuffer, transmitBuffer, specialBuffer, &login, &password);
 
     if (protocol == nullptr)
     {
-        Debug_printf("sioNetwork::open_protocol() - Could not open protocol.\n");
+        Debug_printf("sioNetwork::instantiate_protocol() - Could not create protocol.\n");
         return false;
     }
 
-    if (!login.empty())
-    {
-        protocol->login = &login;
-        protocol->password = &password;
-    }
-
-    Debug_printf("sioNetwork::open_protocol() - Protocol %s opened.\n", urlParser->scheme.c_str());
+    Debug_printf("sioNetwork::instantiate_protocol() - Protocol %s created.\n", urlParser->scheme.c_str());
     return true;
 }
 
-void sioNetwork::parse_and_instantiate_protocol()
+/**
+ * Preprocess deviceSpec given aux1 open mode. This is used to work around various assumptions that different
+ * disk utility packages do when opening a device, such as adding wildcards for directory opens.
+ */
+void sioNetwork::create_devicespec()
 {
     // Clean up devicespec buffer.
     memset(devicespecBuf, 0, sizeof(devicespecBuf));
 
     // Get Devicespec from buffer, and put into primary devicespec string
     bus_to_peripheral(devicespecBuf, sizeof(devicespecBuf));
-    util_clean_devicespec(devicespecBuf, sizeof(devicespecBuf));
+    util_devicespec_fix_9b(devicespecBuf, sizeof(devicespecBuf));
     deviceSpec = string((char *)devicespecBuf);
 
+    deviceSpec = util_devicespec_fix_for_parsing(deviceSpec, prefix, cmdFrame.aux1 == 6, true);
+}
+
+/*
+ * The resulting URL is then sent into EdURLParser to get our URLParser object which is used in the rest
+ * of Network.
+*/
+void sioNetwork::create_url_parser()
+{
+    std::string url = deviceSpec.substr(deviceSpec.find(":") + 1);
+    urlParser = EdUrlParser::parseUrl(url);
+}
+
+void sioNetwork::parse_and_instantiate_protocol()
+{
+    create_devicespec();
+    create_url_parser();
+
     // Invalid URL returns error 165 in status.
-    if (parseURL() == false)
+    if (!urlParser->isValidUrl())
     {
         Debug_printf("Invalid devicespec: %s\n", deviceSpec.c_str());
         status.error = NETWORK_ERROR_INVALID_DEVICESPEC;
@@ -935,10 +1002,10 @@ void sioNetwork::parse_and_instantiate_protocol()
         return;
     }
 
-    Debug_printf("Parse and instantiate protocol: %s\n", deviceSpec.c_str());
+    Debug_printf("::parse_and_instantiate_protocol transformed to (%s, %s)\n", deviceSpec.c_str(), urlParser->mRawUrl.c_str());
 
     // Instantiate protocol object.
-    if (instantiate_protocol() == false)
+    if (!instantiate_protocol())
     {
         Debug_printf("Could not open protocol.\n");
         status.error = NETWORK_ERROR_GENERAL;
@@ -974,71 +1041,6 @@ void sioNetwork::timer_stop()
         esp_timer_delete(rateTimerHandle);
         rateTimerHandle = nullptr;
     }
-}
-
-/**
- * Is this a valid URL? (Used to generate ERROR 165)
- */
-bool sioNetwork::isValidURL(EdUrlParser *url)
-{
-    if (url->scheme == "")
-        return false;
-    else if ((url->path == "") && (url->port == ""))
-        return false;
-    else
-        return true;
-}
-
-/**
- * Preprocess deviceSpec given aux1 open mode. This is used to work around various assumptions that different
- * disk utility packages do when opening a device, such as adding wildcards for directory opens.
- *
- * The resulting URL is then sent into EdURLParser to get our URLParser object which is used in the rest
- * of sioNetwork.
- *
- * This function is a mess, because it has to be, maybe we can factor it out, later. -Thom
- */
-bool sioNetwork::parseURL()
-{
-    string url;
-    string unit = deviceSpec.substr(0, deviceSpec.find_first_of(":") + 1);
-
-    if (urlParser != nullptr)
-        delete urlParser;
-
-    // Prepend prefix, if set.
-    if (prefix.length() > 0)
-        deviceSpec = unit + prefix + deviceSpec.substr(deviceSpec.find(":") + 1);
-    else
-        deviceSpec = unit + deviceSpec.substr(string(deviceSpec).find(":") + 1);
-
-    Debug_printf("sioNetwork::parseURL(%s)\n", deviceSpec.c_str());
-
-    // Strip non-ascii characters.
-    util_strip_nonascii(deviceSpec);
-
-    // Process comma from devicespec (DOS 2 COPY command)
-    // processCommaFromDevicespec();
-
-    if (cmdFrame.aux1 != 6) // Anything but a directory read...
-    {
-        replace(deviceSpec.begin(), deviceSpec.end(), '*', '\0'); // FIXME: Come back here and deal with WC's
-    }
-
-    // Some FMSes add a dot at the end, remove it.
-    if (deviceSpec.substr(deviceSpec.length() - 1) == ".")
-        deviceSpec.erase(deviceSpec.length() - 1, string::npos);
-
-    // Remove any spurious spaces
-    deviceSpec = util_remove_spaces(deviceSpec);
-
-    // chop off front of device name for URL, and parse it.
-    url = deviceSpec.substr(deviceSpec.find(":") + 1);
-    urlParser = EdUrlParser::parseUrl(url);
-
-    Debug_printf("sioNetwork::parseURL transformed to (%s, %s)\n", deviceSpec.c_str(), url.c_str());
-
-    return isValidURL(urlParser);
 }
 
 /**
@@ -1088,6 +1090,7 @@ void sioNetwork::processCommaFromDevicespec()
 void sioNetwork::sio_assert_interrupt()
 {
     fnSystem.digital_write(PIN_PROC, interruptProceed == true ? DIGI_HIGH : DIGI_LOW);
+    // Debug_print(interruptProceed ? "+" : "-");
 }
 
 void sioNetwork::sio_set_translation()
@@ -1106,7 +1109,6 @@ void sioNetwork::sio_set_json_query()
 {
     uint8_t in[256];
     const char *inp = NULL;
-    uint8_t *tmp;
 
     memset(in, 0, sizeof(in));
 
@@ -1119,23 +1121,62 @@ void sioNetwork::sio_set_json_query()
             in[i] = 0x00;
     }
 
-    inp = strrchr((const char *)in, ':');
-    
-    if (inp == NULL)
-    {
-        sio_error();
-        return;
+    std::string in_string(reinterpret_cast<char*>(in));
+    size_t last_colon_pos = in_string.rfind(':');
+
+    std::string inp_string;
+    if (last_colon_pos != std::string::npos) {
+        Debug_printf("sioNetwork::sio_set_json_query - skipped device spec. Application should be updated to remove it from query (%s)\r\n", in_string.c_str());
+        inp_string = in_string.substr(last_colon_pos + 1);
+    } else {
+        inp_string = in_string;
     }
 
-    inp++;
-    json->setReadQuery(string(inp), cmdFrame.aux2);
-    json_bytes_remaining = json->readValueLen();
-    tmp = (uint8_t *)malloc(json->readValueLen());
-    json->readValue(tmp,json_bytes_remaining);
-    *receiveBuffer += string((const char *)tmp,json_bytes_remaining);
-    free(tmp);
-    Debug_printf("Query set to %s\n",inp);
+    json->setReadQuery(inp_string, cmdFrame.aux2);
+    json_bytes_remaining = json->json_bytes_remaining;
+
+    std::vector<uint8_t> tmp(json_bytes_remaining);
+    json->readValue(tmp.data(), json_bytes_remaining);
+
+    // don't copy past first nul char in tmp
+    auto null_pos = std::find(tmp.begin(), tmp.end(), 0);
+    *receiveBuffer += std::string(tmp.begin(), null_pos);
+
+    Debug_printf("Query set to >%s<\r\n", inp_string.c_str());
     sio_complete();
+}
+
+void sioNetwork::sio_set_json_parameters()
+{
+    // aux1  | aux2    |    meaning
+    // 0     | 0/1/2   |  Set the json->_queryParam value, which is the translation value for string processing
+    // 1     |   c     |  Set the json->lineEnding = c, convert from char to single byte string
+
+    switch (cmdFrame.aux1)
+    {
+    case 0:     // JSON QUERY PARAM
+        if (cmdFrame.aux2 > 2)
+        {
+            sio_error();
+            return;
+        }
+        json->setQueryParam(cmdFrame.aux2);
+        sio_complete();
+        break;
+    case 1:     // LINE ENDING
+    {
+        std::stringstream ss;
+        ss << cmdFrame.aux2;
+        string new_le = ss.str();
+        Debug_printf("JSON line ending changed to 0x%02hx\r\n", cmdFrame.aux2);
+        json->setLineEnding(new_le);
+        sio_complete();
+        break;
+    }
+    default:
+        sio_error();
+        break;
+    }
 }
 
 void sioNetwork::sio_set_timer_rate()
@@ -1154,6 +1195,7 @@ void sioNetwork::sio_set_timer_rate()
 
 void sioNetwork::sio_do_idempotent_command_80()
 {
+    Debug_printf("sioNetwork::sio_do_idempotent_command_80()\r\n");
     sio_ack();
 
     parse_and_instantiate_protocol();

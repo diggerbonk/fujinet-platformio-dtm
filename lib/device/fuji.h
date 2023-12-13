@@ -33,6 +33,10 @@
 # include "iwm/fuji.h"
 #endif
 
+#ifdef BUILD_MAC
+# include "mac/fuji.h"
+#endif
+
 #ifdef BUILD_CX16
 #include "cx16_i2c/fuji.h"
 #endif
@@ -41,5 +45,12 @@
 # include "rc2014/fuji.h"
 #endif
 
+#ifdef BUILD_H89
+# include "h89/fuji.h"
+#endif
+
+#ifdef BUILD_COCO
+# include "drivewire/fuji.h"
+#endif 
 
 #endif // DEVICE_FUJI_H

@@ -68,8 +68,11 @@ private:
 
     AdapterConfig cfg;
 
+    std::string response;
+
     void process_raw_commands();
     void process_basic_commands();
+    vector<string> tokenize_basic_command(string command);
 
 protected:
     void reset_fujinet();          // 0xFF
@@ -112,7 +115,7 @@ protected:
     // Commodore specific
     void local_ip();
 
-    device_state_t process(IECData *commanddata) override;
+    device_state_t process() override;
 
     void shutdown() override;
 

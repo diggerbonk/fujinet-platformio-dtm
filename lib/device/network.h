@@ -33,6 +33,14 @@
 # include "rc2014/network.h"
 #endif
 
+#ifdef BUILD_H89
+# include "h89/network.h"
+#endif
+
+#ifdef BUILD_COCO
+# include "drivewire/network.h"
+#endif
+
 #ifdef NEW_TARGET
 # include "new/network.h"
 #endif

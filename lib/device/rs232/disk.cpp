@@ -227,7 +227,10 @@ mediatype_t rs232Disk::mount(FILE *f, const char *filename, uint32_t disksize, m
 rs232Disk::~rs232Disk()
 {
     if (_disk != nullptr)
+    {
         delete _disk;
+        _disk = nullptr;
+    }
 }
 
 // Unmount disk file
@@ -298,4 +301,4 @@ void rs232Disk::rs232_process(uint32_t commanddata, uint8_t checksum)
     rs232_nak();
 }
 
-#endif /* BUILD_ATARI */
+#endif /* BUILD_RS232 */

@@ -5,6 +5,7 @@
 #include <cstring>
 #include <sstream>
 #include <stack>
+#include <cmath>
 
 #include "../../include/debug.h"
 
@@ -275,6 +276,8 @@ std::string util_long_entry(std::string filename, size_t fileSize, bool is_dir)
 
     returned_entry.replace(returned_entry.length() - stylized_filesize.length() - 1, stylized_filesize.length(), stylized_filesize);
 
+    returned_entry.shrink_to_fit();
+    
     return returned_entry;
 }
 
@@ -468,7 +471,7 @@ bool util_concat_paths(char *dest, const char *parent, const char *child, int de
     // Make sure we have room left after copying the parent
     if (plen >= dest_size - 3) // Allow for a minimum of a slash, one char, and NULL
     {
-        Debug_printf("_concat_paths parent takes up entire destination buffer: \"%s\"\n", parent);
+        Debug_printf("_concat_paths parent takes up entire destination buffer: \"%s\"\r\n", parent);
         return false;
     }
 
@@ -482,7 +485,7 @@ bool util_concat_paths(char *dest, const char *parent, const char *child, int de
         }
 
         // Skip a slash in the child if it starts with one so we don't have two slashes
-        if (child[0] == '/' && child[0] == '\\')
+        if (child[0] == '/' || child[0] == '\\')
             child++;
 
         int clen = strlcpy(dest + plen, child, dest_size - plen);
@@ -490,7 +493,7 @@ bool util_concat_paths(char *dest, const char *parent, const char *child, int de
         // Verify we were able to copy the whole thing
         if (clen != strlen(child))
         {
-            Debug_printf("_concat_paths parent + child larger than dest buffer: \"%s\", \"%s\"\n", parent, child);
+            Debug_printf("_concat_paths parent + child larger than dest buffer: \"%s\", \"%s\"\r\n", parent, child);
             return false;
         }
     }
@@ -555,21 +558,54 @@ void util_strip_nonascii(string &s)
     }
 }
 
-void util_clean_devicespec(uint8_t *buf, unsigned short len)
+void util_devicespec_fix_9b(uint8_t *buf, unsigned short len)
 {
     for (int i = 0; i < len; i++)
         if (buf[i] == 0x9b)
             buf[i] = 0x00;
 }
 
+// Non-mutating
+std::string util_devicespec_fix_for_parsing(std::string deviceSpec, std::string prefix, bool is_directory_read, bool process_fs_dot)
+{
+    string unit = deviceSpec.substr(0, deviceSpec.find_first_of(":") + 1);
+    // if prefix is empty, the concatenation is still valid
+    deviceSpec = unit + prefix + deviceSpec.substr(deviceSpec.find(":") + 1);
+
+    Debug_printf("util_devicespec_fix_for_parsing(%s, %s, %s, %s)\n", deviceSpec.c_str(), prefix.c_str(), is_directory_read ? "true" : "false", process_fs_dot ? "true" : "false");
+
+    util_strip_nonascii(deviceSpec);
+
+    if (!is_directory_read) // Anything but a directory read...
+    {
+        replace(deviceSpec.begin(), deviceSpec.end(), '*', '\0'); // FIXME: Come back here and deal with WC's
+    }
+
+    // Some FMSes add a dot at the end, remove it if required to. Only seems to be SIO that uses this code, but we'll control its use through a default parameter
+    if (process_fs_dot && deviceSpec.substr(deviceSpec.length() - 1) == ".")
+    {
+        deviceSpec.erase(deviceSpec.length() - 1, string::npos);
+    }
+
+    // Remove any spurious spaces
+    deviceSpec = util_remove_spaces(deviceSpec);
+
+    return deviceSpec;
+}
+
 bool util_string_value_is_true(const char *value)
 {
-    if (value != nullptr)
+    switch (value ? value[0] : '\0')
     {
-        if (value[0] == '1' || value[0] == 'T' || value[0] == 't' || value[0] == 'Y' || value[0] == 'y')
+        case '1':
+        case 'T':
+        case 't':
+        case 'Y':
+        case 'y':
             return true;
+        default:
+            return false;
     }
-    return false;
 }
 
 bool util_string_value_is_true(std::string value)
@@ -828,4 +864,42 @@ void util_ascii_to_petscii_str(std::string &s)
     std::transform(s.begin(), s.end(), s.begin(),
                    [](unsigned char c)
                    { return util_ascii_to_petscii(c); });
+}
+
+char *util_hexdump(const void *buf, size_t len) {
+  const unsigned char *p = (const unsigned char *) buf;
+  size_t i, idx, n = 0, ofs = 0, dlen = len * 5 + 100;
+  char ascii[17] = "", *dst = (char *) calloc(1, dlen);
+  if (dst == NULL) return dst;
+  for (i = 0; i < len; i++) {
+    idx = i % 16;
+    if (idx == 0) {
+      if (i > 0 && dlen > n)
+        n += (size_t) snprintf(dst + n, dlen - n, "  %s\n", ascii);
+      if (dlen > n)
+        n += (size_t) snprintf(dst + n, dlen - n, "%04x ", (int) (i + ofs));
+    }
+    if (dlen < n) break;
+    n += (size_t) snprintf(dst + n, dlen - n, " %02x", p[i]);
+    ascii[idx] = (char) (p[i] < 0x20 || p[i] > 0x7e ? '.' : p[i]);
+    ascii[idx + 1] = '\0';
+  }
+  while (i++ % 16) {
+    if (n < dlen) n += (size_t) snprintf(dst + n, dlen - n, "%s", "   ");
+  }
+  if (n < dlen) n += (size_t) snprintf(dst + n, dlen - n, "  %s\n", ascii);
+  if (n > dlen - 1) n = dlen - 1;
+  dst[n] = '\0';
+  return dst;
+}
+
+bool isApproximatelyInteger(double value, double tolerance) {
+    return std::abs(value - std::floor(value)) < tolerance;
+}
+
+std::string prependSlash(const std::string& str) {
+    if (str.empty() || str[0] != '/') {
+        return "/" + str;
+    }
+    return str;
 }

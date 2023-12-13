@@ -36,7 +36,7 @@ void iwmDisk2::init()
   device_active = false;
 }
 
-mediatype_t iwmDisk2::mount(FILE *f, mediatype_t disk_type)//, const char *filename), uint32_t disksize, mediatype_t disk_type)
+mediatype_t iwmDisk2::mount(FILE *f, uint32_t disksize, mediatype_t disk_type)//, const char *filename), uint32_t disksize, mediatype_t disk_type)
 {
 
   mediatype_t mt = MEDIATYPE_UNKNOWN;
@@ -57,20 +57,25 @@ mediatype_t iwmDisk2::mount(FILE *f, mediatype_t disk_type)//, const char *filen
         Debug_printf("\nMounting Media Type WOZ");
         device_active = true;
         _disk = new MediaTypeWOZ();
-        mt = ((MediaTypeWOZ *)_disk)->mount(f);
-        change_track(0); // initialize spi buffer
+        mt = ((MediaTypeWOZ *)_disk)->mount(f, disksize);
         break;
-    case MEDIATYPE_DSK:
+    case MEDIATYPE_DO:
+    case MEDIATYPE_PO:
         Debug_printf("\nMounting Media Type DSK");
         device_active = true;
         _disk = new MediaTypeDSK();
-        mt = ((MediaTypeDSK *)_disk)->mount(f);
-        change_track(0); // initialize spi buffer
+        _disk->_mediatype = disk_type;
+        mt = ((MediaTypeDSK *)_disk)->mount(f, disksize);
         break;
     default:
+        break;
+    }
+
+    if (mt == MEDIATYPE_WOZ) {
+        change_track(0); // initialize spi buffer
+    } else {
         Debug_printf("\nMedia Type UNKNOWN - no mount in disk2.cpp");
         device_active = false;
-        break;
     }
 
     return mt;
@@ -121,21 +126,24 @@ void IRAM_ATTR iwmDisk2::change_track(int indicator)
   if (!device_active)
     return;
 
-  if (old_pos == track_pos)
+  if ((old_pos == track_pos) && indicator) // indicator=0 - always copy track, used for swapping drives
     return;
 
   // should only copy track data over if it's changed
-  if ( ((MediaTypeWOZ *)_disk)->trackmap(old_pos) == ((MediaTypeWOZ *)_disk)->trackmap(track_pos) )
+  if ((((MediaTypeWOZ *)_disk)->trackmap(old_pos) == ((MediaTypeWOZ *)_disk)->trackmap(track_pos)) && indicator)
     return;
 
   // need to tell diskii_xface the number of bits in the track
   // and where the track data is located so it can convert it
   if (((MediaTypeWOZ *)_disk)->trackmap(track_pos) != 255)
+  {
     diskii_xface.copy_track(
         ((MediaTypeWOZ *)_disk)->get_track(track_pos),
         ((MediaTypeWOZ *)_disk)->track_len(track_pos),
         ((MediaTypeWOZ *)_disk)->num_bits(track_pos),
         NS_PER_BIT_TIME * ((MediaTypeWOZ *)_disk)->optimal_bit_timing);
+    Debug_printf("\nCopy track: %d", track_pos);
+  }
   else
     diskii_xface.copy_track(
         nullptr, 

@@ -24,7 +24,7 @@
 #define MAX_WRITE_BUFFER_TICKS 1000
 
 UARTManager fnUartDebug(UART_DEBUG);
-UARTManager fnUartSIO(UART_SIO);
+UARTManager fnUartBUS(UART_SIO);
 
 // Constructor
 UARTManager::UARTManager(uart_port_t uart_num) : _uart_num(uart_num), _uart_q(NULL) {}
@@ -66,19 +66,19 @@ void UARTManager::begin(int baud)
     // This works around an obscure hardware bug where resetting UART2 causes the TX to become corrupted
     // when the FIFO is reset by this function. Blame me for it -Thom
     // ... except on the Adam, which needs this to happen regardless. Go figure.
-#ifdef BUILD_ATARI
-    if (_uart_num == UART_SIO)
-    {
-        if (esp_reset_reason() != ESP_RST_SW)
-            uart_param_config(_uart_num, &uart_config);
-    }
-    else if (_uart_num == UART_DEBUG)
-    {
-        uart_param_config(_uart_num, &uart_config);
-    }
-#else
-    uart_param_config(_uart_num, &uart_config);
-#endif
+// #ifdef BUILD_ATARI
+//     if (_uart_num == UART_SIO)
+//     {
+//         if (esp_reset_reason() != ESP_RST_SW)
+//             uart_param_config(_uart_num, &uart_config);
+//     }
+//     else if (_uart_num == UART_DEBUG)
+//     {
+//         uart_param_config(_uart_num, &uart_config);
+//     }
+// #else
+    uart_param_config(_uart_num, &uart_config); // now always gets called.
+// #endif
 
     int tx, rx;
     if (_uart_num == 0)
@@ -109,6 +109,12 @@ void UARTManager::begin(int baud)
     if (_uart_num == 2)
         uart_set_line_inverse(_uart_num, UART_SIGNAL_TXD_INV | UART_SIGNAL_RXD_INV);
 #endif /* BUILD_ADAM */
+
+#ifdef BUILD_COCO
+    if (_uart_num == 2)
+        uart_set_line_inverse(_uart_num, UART_SIGNAL_TXD_INV | UART_SIGNAL_RXD_INV);
+#endif /* BUILD_ADAM */
+
 
     // Arduino default buffer size is 256
     int uart_buffer_size = 256;
@@ -183,7 +189,7 @@ void UARTManager::set_baudrate(uint32_t baud)
 #endif
     uart_set_baudrate(_uart_num, baud);
 #ifdef DEBUG
-    Debug_printf("set_baudrate change from %d to %d\n", before, baud);
+    Debug_printf("set_baudrate change from %d to %d\r\n", before, baud);
 #endif
 }
 
@@ -199,7 +205,7 @@ int UARTManager::read(void)
         if (result == 0)
             Debug_println("### UART read() TIMEOUT ###");
         else
-            Debug_printf("### UART read() ERROR %d ###\n", result);
+            Debug_printf("### UART read() ERROR %d ###\r\n", result);
 #endif
         return -1;
     }
@@ -218,7 +224,7 @@ size_t UARTManager::readBytes(uint8_t *buffer, size_t length)
     {
         if (result < 0)
         {
-            Debug_printf("### UART readBytes() ERROR %d ###\n", result);
+            Debug_printf("### UART readBytes() ERROR %d ###\r\n", result);
         }
         else
         {
@@ -310,7 +316,7 @@ size_t UARTManager::print(const char *str)
     ;
 }
 
-size_t UARTManager::print(std::string str)
+size_t UARTManager::print(const std::string &str)
 {
     if (!_initialized)
         return -1;

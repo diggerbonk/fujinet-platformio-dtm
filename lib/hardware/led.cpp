@@ -3,8 +3,6 @@
 
 #include "fnSystem.h"
 
-#include "led_strip.h"
-
 #define BLINKING_TIME 100 // 200 ms
 
 
@@ -21,7 +19,7 @@ LedManager::LedManager()
 // Sets required pins to OUTPUT mode and makes sure they're initially off
 void LedManager::setup()
 {
-#if defined(PINMAP_A2_REV0) || defined(PINMAP_FUJIAPPLE_IEC)
+#if defined(PINMAP_A2_REV0) || defined(PINMAP_FUJIAPPLE_IEC) || defined(PINMAP_MAC_REV0)
     fnSystem.set_pin_mode(PIN_LED_BUS, gpio_mode_t::GPIO_MODE_OUTPUT);
     fnSystem.digital_write(PIN_LED_BUS, DIGI_LOW);
 
@@ -53,13 +51,13 @@ void LedManager::set(eLed led, bool on)
         switch (led)
         {
         case eLed::LED_BUS:
-            fnLedStrip.set(stripLed::LED_STRIP_BUS, on);
+            //fnLedStrip.set(stripLed::LED_STRIP_BUS, on);
             break;
         case eLed::LED_BT:
-            fnLedStrip.set(stripLed::LED_STRIP_BT, on);
+            //fnLedStrip.set(stripLed::LED_STRIP_BT, on);
             break;
         case eLed::LED_WIFI:
-            fnLedStrip.set(stripLed::LED_STRIP_WIFI, on);
+            //fnLedStrip.set(stripLed::LED_STRIP_WIFI, on);
             break;
         default:
             break;
@@ -68,7 +66,7 @@ void LedManager::set(eLed led, bool on)
     else
     {
         mLedState[led] = on;
-#if defined(PINMAP_A2_REV0) || defined(PINMAP_FUJIAPPLE_IEC)
+#if defined(PINMAP_A2_REV0) || defined(PINMAP_FUJIAPPLE_IEC) || defined(PINMAP_MAC_REV0)
         // FujiApple Rev 0 BUS LED has reverse logic
         if (led == LED_BUS)
             fnSystem.digital_write(mLedPin[led], (on ? DIGI_HIGH : DIGI_LOW));
@@ -87,13 +85,13 @@ void LedManager::toggle(eLed led)
         switch (led)
         {
         case eLed::LED_BUS:
-            fnLedStrip.toggle(stripLed::LED_STRIP_BUS);
+            //fnLedStrip.toggle(stripLed::LED_STRIP_BUS);
             break;
         case eLed::LED_BT:
-            fnLedStrip.toggle(stripLed::LED_STRIP_BT);
+            //fnLedStrip.toggle(stripLed::LED_STRIP_BT);
             break;
         case eLed::LED_WIFI:
-            fnLedStrip.toggle(stripLed::LED_STRIP_WIFI);
+            //fnLedStrip.toggle(stripLed::LED_STRIP_WIFI);
             break;
         default:
             break;
@@ -112,13 +110,13 @@ void LedManager::blink(eLed led, int count)
         switch (led)
         {
         case eLed::LED_BUS:
-            fnLedStrip.blink(stripLed::LED_STRIP_BUS, count);
+            //fnLedStrip.blink(stripLed::LED_STRIP_BUS, count);
             break;
         case eLed::LED_BT:
-            fnLedStrip.blink(stripLed::LED_STRIP_BT, count);
+            //fnLedStrip.blink(stripLed::LED_STRIP_BT, count);
             break;
         case eLed::LED_WIFI:
-            fnLedStrip.blink(stripLed::LED_STRIP_WIFI, count);
+            //fnLedStrip.blink(stripLed::LED_STRIP_WIFI, count);
             break;
         default:
             break;

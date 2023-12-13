@@ -24,7 +24,7 @@ char * FileSystem::_make_fullpath(const char *path)
         }
         strlcat(fullpath, path, MAX_PATHLEN);
         #ifdef DEBUG
-        //Debug_printf("_make_fullpath \"%s\" -> \"%s\"\n", path, fullpath);
+        //Debug_printf("_make_fullpath \"%s\" -> \"%s\"\r\n", path, fullpath);
         #endif
 
         return fullpath;
@@ -36,6 +36,8 @@ char * FileSystem::_make_fullpath(const char *path)
 // Returns size of open file
 long FileSystem::filesize(FILE *f)
 {
+    if (f == nullptr)
+        return -1;
     long curr = ftell(f);
     fseek(f, 0, SEEK_END);
     long end = ftell(f);
@@ -58,6 +60,8 @@ const char * FileSystem::type_to_string(fsType type)
     {
         case FSTYPE_SPIFFS:
             return "FS_SPIFFS";
+        case FSTYPE_LITTLEFS:
+            return "FS_LITTLEFS";
         case FSTYPE_SDFAT:
             return "FS_SDFAT";
         case FSTYPE_TNFS:

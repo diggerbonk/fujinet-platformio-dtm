@@ -4,14 +4,17 @@
 
 #include <cstring>
 
-#include "../../include/debug.h"
+#include "../../../include/debug.h"
 
 #include "fnSystem.h"
 #include "fnConfig.h"
 #include "fnWiFi.h"
-#include "fnFsSPIFFS.h"
+#include "fsFlash.h"
 
 #include "utils.h"
+
+#include "../../encoding/base64.h"
+#include "../../encoding/hash.h"
 
 #define ADDITIONAL_DETAILS_BYTES 12
 
@@ -127,7 +130,7 @@ void rc2014Fuji::rc2014_net_scan_result()
     // Response to FUJICMD_GET_SCAN_RESULT
     struct
     {
-        char ssid[MAX_SSID_LEN];
+        char ssid[MAX_SSID_LEN+1];
         uint8_t rssi;
     } detail;
 
@@ -159,7 +162,7 @@ void rc2014Fuji::rc2014_net_get_ssid()
     // Response to FUJICMD_GET_SSID
     struct
     {
-        char ssid[MAX_SSID_LEN];
+        char ssid[MAX_SSID_LEN+1];
         char password[MAX_WIFI_PASS_LEN];
     } cfg;
 
@@ -201,7 +204,7 @@ void rc2014Fuji::rc2014_net_set_ssid()
         // Data for FUJICMD_SET_SSID
         struct
         {
-            char ssid[MAX_SSID_LEN];
+            char ssid[MAX_SSID_LEN+1];
             char password[MAX_WIFI_PASS_LEN];
         } cfg;
 
@@ -956,6 +959,288 @@ void rc2014Fuji::rc2014_device_enabled_status()
     rc2014_send_complete();
 }
 
+void rc2014Fuji::rc2014_base64_encode_input()
+{
+    Debug_printf("FUJI: BASE64 ENCODE INPUT\n");
+
+    uint16_t len = (cmdFrame.aux2 << 8) | cmdFrame.aux1;
+    if (!len)
+    {
+        Debug_printf("Invalid length. Aborting");
+        rc2014_send_error();
+        return;
+    }
+
+    std::vector<unsigned char> p(len);
+    rc2014_send_ack();
+    rc2014_recv_buffer((uint8_t *)p.data(), len);
+    rc2014_send_ack();
+    base64.base64_buffer += std::string((const char *)p.data(), len);
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_base64_encode_compute()
+{
+    size_t out_len;
+
+    Debug_printf("FUJI: BASE64 ENCODE COMPUTE\n");
+
+    std::unique_ptr<char[]> p = Base64::encode(base64.base64_buffer.c_str(), base64.base64_buffer.size(), &out_len);
+    if (!p)
+    {
+        Debug_printf("base64_encode compute failed\n");
+        rc2014_send_error();
+        return;
+    }
+
+    rc2014_send_ack();
+
+    base64.base64_buffer.clear();
+    base64.base64_buffer = string(p.get(), out_len);
+
+    Debug_printf("Resulting BASE64 encoded data is: %u bytes\n", out_len);
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_base64_encode_length()
+{
+    Debug_printf("FUJI: BASE64 ENCODE LENGTH\n");
+
+    size_t l = base64.base64_buffer.length();
+    if (!l)
+    {
+        Debug_printf("BASE64 buffer is 0 bytes, sending error.\n");
+        rc2014_send_error();
+    }
+
+    Debug_printf("base64 buffer length: %u bytes\n",l);
+    rc2014_send_ack();
+
+    rc2014_send_buffer((uint8_t *)&l, sizeof(size_t));
+    rc2014_flush();
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_base64_encode_output()
+{
+    Debug_printf("FUJI: BASE64 ENCODE OUTPUT\n");
+
+    uint16_t len = (cmdFrame.aux2 << 8) | cmdFrame.aux1;
+    if (!len)
+    {
+        Debug_printf("Refusing to send a zero byte buffer. Aborting\n");
+        rc2014_send_error();
+        return;
+    }
+    else if (len > base64.base64_buffer.length())
+    {
+        Debug_printf("Requested %u bytes, but buffer is only %u bytes, aborting.\n", len, base64.base64_buffer.length());
+        rc2014_send_error();
+        return;
+    }
+    else
+    {
+        Debug_printf("Requested %u bytes\n", len);
+    }
+
+    std::vector<unsigned char> p(len);
+    rc2014_send_ack();
+
+    memcpy(p.data(), base64.base64_buffer.data(), len);
+    base64.base64_buffer.erase(0, len);
+    base64.base64_buffer.shrink_to_fit();
+
+    rc2014_send_buffer(p.data(), len);
+    rc2014_flush();
+
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_base64_decode_input()
+{
+    Debug_printf("FUJI: BASE64 DECODE INPUT\n");
+
+    uint16_t len = (cmdFrame.aux2 << 8) | cmdFrame.aux1;
+    if (!len)
+    {
+        Debug_printf("Invalid length. Aborting");
+        rc2014_send_error();
+        return;
+    }
+
+    std::vector<unsigned char> p(len);
+    rc2014_send_ack();
+
+    rc2014_recv_buffer((uint8_t *)p.data(), len);
+    rc2014_send_ack();
+    base64.base64_buffer += string((const char *)p.data(), len);
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_base64_decode_compute()
+{
+    size_t out_len;
+
+    Debug_printf("FUJI: BASE64 DECODE COMPUTE\n");
+
+    std::unique_ptr<unsigned char[]> p = Base64::decode(base64.base64_buffer.c_str(),base64.base64_buffer.size(),&out_len);
+    if (!p)
+    {
+        Debug_printf("base64_encode compute failed\n");
+        rc2014_send_error();
+        return;
+    }
+
+    rc2014_send_ack();
+
+    base64.base64_buffer.clear();
+    base64.base64_buffer = string((const char *)p.get(), out_len);
+
+    Debug_printf("Resulting BASE64 encoded data is: %u bytes\n", out_len);
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_base64_decode_length()
+{
+    Debug_printf("FUJI: BASE64 DECODE LENGTH\n");
+    rc2014_send_ack();
+
+    size_t len = base64.base64_buffer.length();
+
+    if (!len)
+    {
+        Debug_printf("BASE64 buffer is 0 bytes, sending error.\n");
+        rc2014_send_error();
+        return;
+    }
+
+    Debug_printf("base64 buffer length: %u bytes\n", len);
+
+    rc2014_send_buffer((uint8_t *)&len, sizeof(size_t));
+    rc2014_flush();
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_base64_decode_output()
+{
+    Debug_printf("FUJI: BASE64 DECODE OUTPUT\n");
+
+    uint16_t len = (cmdFrame.aux2 << 8) | cmdFrame.aux1;
+    if (!len)
+    {
+        Debug_printf("Refusing to send a zero byte buffer. Aborting\n");
+        rc2014_send_error();
+        return;
+    }
+    else if (len > base64.base64_buffer.length())
+    {
+        Debug_printf("Requested %u bytes, but buffer is only %u bytes, aborting.\n", len, base64.base64_buffer.length());
+        rc2014_send_error();
+        return;
+    }
+    else
+    {
+        Debug_printf("Requested %u bytes\n", len);
+    }
+
+    std::vector<unsigned char> p(len);
+    rc2014_send_ack();
+    memcpy(p.data(), base64.base64_buffer.data(), len);
+    base64.base64_buffer.erase(0, len);
+    base64.base64_buffer.shrink_to_fit();
+
+    rc2014_send_buffer(p.data(), len);
+    rc2014_flush();
+
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_hash_input()
+{
+    Debug_printf("FUJI: HASH INPUT\n");
+
+    uint16_t len = (cmdFrame.aux2 << 8) | cmdFrame.aux1;
+    if (!len)
+    {
+        Debug_printf("Invalid length. Aborting");
+        rc2014_send_error();
+        return;
+    }
+
+    std::vector<unsigned char> p(len);
+    rc2014_send_ack();
+    rc2014_recv_buffer((uint8_t *)p.data(), len);
+    rc2014_send_ack();
+    base64.base64_buffer += string((const char *)p.data(), len);
+
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_hash_compute()
+{
+    uint16_t m = hash_mode = cmdFrame.aux1;
+
+    Debug_printf("FUJI: HASH COMPUTE\n");
+
+    rc2014_send_ack();
+
+    hasher.compute(m, base64.base64_buffer);
+    base64.base64_buffer.clear();
+    base64.base64_buffer.shrink_to_fit();
+
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_hash_length()
+{
+    unsigned char r = 0;
+    uint16_t m = cmdFrame.aux1;
+
+    Debug_printf("FUJI: HASH LENGTH\n");
+
+    switch (hash_mode)
+    {
+        case 0: // MD5
+            r = 16;
+            break;
+        case 1: // SHA1
+            r = 20;
+            break;
+        case 2: // SHA256
+            r = 32;
+            break;
+        case 3: // SHA512
+            r = 64;
+            break;
+    }
+
+    if (m == 1)  // Hex output
+        m <<= 1; // double it.
+
+    rc2014_send_ack();
+
+    rc2014_send_buffer((uint8_t *)r, 1);
+    rc2014_flush();
+    rc2014_send_complete();
+}
+
+void rc2014Fuji::rc2014_hash_output()
+{
+    uint16_t olen = 0;
+    uint16_t m = cmdFrame.aux1;
+
+    Debug_printf("FUJI: HASH OUTPUT\n");
+
+    std::vector<uint8_t> o = hasher.hash_output(m, hash_mode, olen);
+    rc2014_send_ack();
+
+    rc2014_send_buffer(o.data(), olen);
+    rc2014_flush();
+
+    rc2014_send_complete();
+}
+
+
 // Initializes base settings and adds our devices to the SIO bus
 void rc2014Fuji::setup(systemBus *siobus)
 {
@@ -975,7 +1260,7 @@ void rc2014Fuji::setup(systemBus *siobus)
     _rc2014_bus->addDevice(&_fnDisks[2].disk_dev, RC2014_DEVICEID_DISK + 2);
     _rc2014_bus->addDevice(&_fnDisks[3].disk_dev, RC2014_DEVICEID_DISK + 3);
 
-    //FILE *f = fnSPIFFS.file_open("/autorun.ddp");
+    //FILE *f = fsFlash.file_open("/autorun.ddp");
     //_fnDisks[0].disk_dev.mount(f, "/autorun.ddp", 262144, MEDIATYPE_DDP);
 
     theNetwork = new rc2014Network();
@@ -1007,7 +1292,7 @@ void rc2014Fuji::mount_all()
         if (disk.access_mode == DISK_ACCESS_MODE_WRITE)
             flag[1] = '+';
 
-        if (disk.host_slot != 0xFF)
+        if (disk.host_slot != INVALID_HOST_SLOT)
         {
             nodisks = false; // We have a disk in a slot
 
@@ -1182,6 +1467,42 @@ void rc2014Fuji::rc2014_process(uint32_t commanddata, uint8_t checksum)
         // break;
     case FUJICMD_DEVICE_ENABLE_STATUS:
         rc2014_device_enabled_status();
+        break;
+    case FUJICMD_BASE64_ENCODE_INPUT:
+        rc2014_base64_encode_input();
+        break;
+    case FUJICMD_BASE64_ENCODE_COMPUTE:
+        rc2014_base64_encode_compute();
+        break;
+    case FUJICMD_BASE64_ENCODE_LENGTH:
+        rc2014_base64_encode_length();
+        break;
+    case FUJICMD_BASE64_ENCODE_OUTPUT:
+        rc2014_base64_encode_output();
+        break;
+    case FUJICMD_BASE64_DECODE_INPUT:
+        rc2014_base64_decode_input();
+        break;
+    case FUJICMD_BASE64_DECODE_COMPUTE:
+        rc2014_base64_decode_compute();
+        break;
+    case FUJICMD_BASE64_DECODE_LENGTH:
+        rc2014_base64_decode_length();
+        break;
+    case FUJICMD_BASE64_DECODE_OUTPUT:
+        rc2014_base64_decode_output();
+        break;
+    case FUJICMD_HASH_INPUT:
+        rc2014_hash_input();
+        break;
+    case FUJICMD_HASH_COMPUTE:
+        rc2014_hash_compute();
+        break;
+    case FUJICMD_HASH_LENGTH:
+        rc2014_hash_length();
+        break;
+    case FUJICMD_HASH_OUTPUT:
+        rc2014_hash_output();
         break;
     default:
         fnUartDebug.printf("rc2014_process() not implemented yet for this device. Cmd received: %02x\n", cmdFrame.comnd);

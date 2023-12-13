@@ -27,6 +27,7 @@ void IRAM_ATTR phi_isr_handler(void *arg)
   // update the head position based on phases
   // put the right track in the SPI buffer
 
+  uint32_t int_gpio_num = (uint32_t) arg; // gpio that triggered the interrupt
   int error; // checksum error return
   uint8_t c;
 
@@ -98,7 +99,13 @@ void IRAM_ATTR phi_isr_handler(void *arg)
       }
       else if (error == 2) // checksum error
       {
-        Debug_printf("\r\nISR Data Packet Chksum error, calc %02x, pkt %02x", smartport.calc_checksum, smartport.pkt_checksum);
+        Debug_printf("\r\nISR Data Packet Chksum error, calc %02x, pkt %02x command = %02x", smartport.calc_checksum, smartport.pkt_checksum,IWM.command_packet.command & 0x0f);
+        /*We sometimes get garbage data packets with control code 0 commands, accept them as-is and go on*/
+        if((IWM.command_packet.command == 0x84) && (IWM.command_packet.data[19] == 0x80)) {
+          Debug_printf("\r\nIgnoring bad data packet");
+          smartport.iwm_ack_clr();
+          sp_command_mode = sp_cmd_state_t::command;
+        }
         // reset sp_command_mode to standy or leave to retry?
       }
       // initial Req timeout (error==1) and checksum (error==2) just fall through here and we try again next time
@@ -108,7 +115,10 @@ void IRAM_ATTR phi_isr_handler(void *arg)
       break;
     }
   }
-  else if (diskii_xface.iwm_enable_states() & 0b11)
+  // add extra condition here to stop edge case where on softsp, the disk is stepping inadvertantly when SP bus is
+  // disabled. PH1 gets set low first, then PH3 follows a very short time after. We look for the interrupt on PH1 (33)
+  // and then PH1 = 0 (going low) and PH3 = 1 (still high)
+  else if ((diskii_xface.iwm_enable_states() & 0b11) && !((int_gpio_num == 33 && _phases == 0b1000)))
   {
     if (theFuji._fnDisk2s[diskii_xface.iwm_enable_states() - 1].move_head())
     {
@@ -627,10 +637,10 @@ void iwm_ll::setup_gpio()
 
 
   // attach the interrupt service routine
-  gpio_isr_handler_add((gpio_num_t)SP_PHI0, phi_isr_handler, NULL);
-  gpio_isr_handler_add((gpio_num_t)SP_PHI1, phi_isr_handler, NULL);
-  gpio_isr_handler_add((gpio_num_t)SP_PHI2, phi_isr_handler, NULL);
-  gpio_isr_handler_add((gpio_num_t)SP_PHI3, phi_isr_handler, NULL);
+  gpio_isr_handler_add((gpio_num_t)SP_PHI0, phi_isr_handler, (void*) (gpio_num_t)SP_PHI0);
+  gpio_isr_handler_add((gpio_num_t)SP_PHI1, phi_isr_handler, (void*) (gpio_num_t)SP_PHI1);
+  gpio_isr_handler_add((gpio_num_t)SP_PHI2, phi_isr_handler, (void*) (gpio_num_t)SP_PHI2);
+  gpio_isr_handler_add((gpio_num_t)SP_PHI3, phi_isr_handler, (void*) (gpio_num_t)SP_PHI3);
 }
 
 void iwm_sp_ll::encode_packet(uint8_t source, iwm_packet_type_t packet_type, uint8_t status, const uint8_t* data, uint16_t num)
@@ -799,12 +809,13 @@ void iwm_diskii_ll::set_output_to_low()
 #define RMT_TX_CHANNEL rmt_channel_t::RMT_CHANNEL_0
 #define RMT_USEC (APB_CLK_FREQ / MHZ)
 
-void iwm_diskii_ll::start()
+void iwm_diskii_ll::start(uint8_t drive)
 {
   diskii_xface.set_output_to_rmt();
   diskii_xface.enable_output();
   ESP_ERROR_CHECK(fnRMT.rmt_write_bitstream(RMT_TX_CHANNEL, track_buffer, track_numbits, track_bit_period));
   fnLedManager.set(LED_BUS, true);
+  Debug_printf("\nstart diskII d%d",drive+1);
 }
 
 void iwm_diskii_ll::stop()
@@ -812,6 +823,7 @@ void iwm_diskii_ll::stop()
   fnRMT.rmt_tx_stop(RMT_TX_CHANNEL);
   diskii_xface.disable_output();
   fnLedManager.set(LED_BUS, false);
+  Debug_printf("\nstop diskII");
 }
 
 void iwm_diskii_ll::set_output_to_rmt()
@@ -1047,13 +1059,10 @@ uint8_t IRAM_ATTR iwm_diskii_ll::iwm_enable_states()
   // only enable diskII if we are either not on an en35 capable host, or we are on an en35host and /EN35=high
   if (!IWM.en35Host || (IWM.en35Host && (GPIO.in1.val & (0x01 << (SP_EN35 - 32)))))
   {
-    // Temporary while we debug Disk ][
-#ifdef DISKII_DRIVE1
-    states |= !((GPIO.in1.val & (0x01 << (SP_DRIVE1 - 32))) >> (SP_DRIVE1 - 32));
-#endif
-#ifdef DISKII_DRIVE2
-    states |= !((GPIO.in & (0x01 << SP_DRIVE2)) >> SP_DRIVE2);
-#endif
+    if (!(states |= (GPIO.in1.val & (0x01 << (SP_DRIVE1 - 32))) ? 0b00 : 0b01))
+    {
+      states |= (GPIO.in & (0x01 << SP_DRIVE2)) ? 0b00 : 0b10;
+    }
   }
   return states;
 }

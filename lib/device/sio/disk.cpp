@@ -260,7 +260,10 @@ mediatype_t sioDisk::mount(FILE *f, const char *filename, uint32_t disksize, med
 sioDisk::~sioDisk()
 {
     if (_disk != nullptr)
+    {
         delete _disk;
+        _disk = nullptr;
+    }
 }
 
 // Unmount disk file
@@ -292,11 +295,11 @@ void sioDisk::sio_process(uint32_t commanddata, uint8_t checksum)
     if (_disk == nullptr || _disk->_disktype == MEDIATYPE_UNKNOWN)
         return;
 
-    if (device_active == false &&
-        (cmdFrame.comnd != SIO_DISKCMD_STATUS && cmdFrame.comnd != SIO_DISKCMD_HSIO_INDEX))
+    if ((device_active == false && cmdFrame.device != SIO_DEVICEID_DISK) || // not active and not D1
+        (device_active == false && theFuji.boot_config == false)) // not active and not config boot
         return;
 
-    Debug_print("disk sio_process()\n");
+    Debug_printf("disk sio_process(), baud: %d\n", SIO.getBaudrate());
 
     switch (cmdFrame.comnd)
     {
@@ -454,6 +457,7 @@ void sioDisk::sio_process(uint32_t commanddata, uint8_t checksum)
         {
             sio_ack();
             sio_high_speed();
+            SIO.toggleBaudrate();
             return;
         }
         break;

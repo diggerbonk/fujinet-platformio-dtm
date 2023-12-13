@@ -11,7 +11,7 @@
 
 #include "fnSystem.h"
 #include "fnConfig.h"
-#include "fnFsSPIFFS.h"
+#include "fsFlash.h"
 #include "fnWiFi.h"
 
 #include "led.h"
@@ -338,6 +338,7 @@ void rs232Fuji::rs232_copy_file()
     if (ck != rs232_checksum(csBuf, sizeof(csBuf)))
     {
         rs232_error();
+        free(dataBuf);
         return;
     }
 
@@ -349,18 +350,21 @@ void rs232Fuji::rs232_copy_file()
     if (copySpec.empty() || copySpec.find_first_of("|") == string::npos)
     {
         rs232_error();
+        free(dataBuf);
         return;
     }
 
     if (cmdFrame.aux1 < 1 || cmdFrame.aux1 > 8)
     {
         rs232_error();
+        free(dataBuf);
         return;
     }
 
     if (cmdFrame.aux2 < 1 || cmdFrame.aux2 > 8)
     {
         rs232_error();
+        free(dataBuf);
         return;
     }
 
@@ -391,6 +395,7 @@ void rs232Fuji::rs232_copy_file()
     if (sourceFile == nullptr)
     {
         rs232_error();
+        free(dataBuf);
         return;
     }
 
@@ -399,6 +404,8 @@ void rs232Fuji::rs232_copy_file()
     if (destFile == nullptr)
     {
         rs232_error();
+        fclose(sourceFile);
+        free(dataBuf);
         return;
     }
 
@@ -431,7 +438,7 @@ void rs232Fuji::mount_all()
         if (disk.access_mode == DISK_ACCESS_MODE_WRITE)
             flag[1] = '+';
 
-        if (disk.host_slot != 0xFF)
+        if (disk.host_slot != INVALID_HOST_SLOT)
         {
             nodisks = false; // We have a disk in a slot
 
@@ -1090,7 +1097,7 @@ void rs232Fuji::rs232_set_host_prefix()
     char prefix[MAX_HOST_PREFIX_LEN];
     uint8_t hostSlot = cmdFrame.aux1;
 
-    uint8_t ck = bus_to_peripheral((uint8_t *)prefix, MAX_FILENAME_LEN);
+    uint8_t ck = bus_to_peripheral((uint8_t *)prefix, MAX_HOST_PREFIX_LEN);
 
     Debug_printf("Fuji cmd: SET HOST PREFIX %uh \"%s\"\n", hostSlot, prefix);
 
@@ -1305,8 +1312,9 @@ void rs232Fuji::rs232_set_device_filename()
     // Handle DISK slots
     if (slot < MAX_DISK_DEVICES)
     {
-        // TODO: Set HOST and MODE
         memcpy(_fnDisks[cmdFrame.aux1].filename, tmp, MAX_FILENAME_LEN);
+        _fnDisks[cmdFrame.aux1].host_slot = host;
+        _fnDisks[cmdFrame.aux1].access_mode = mode;
         _populate_config_from_slots();
     }
     // Handle TAPE slots
@@ -1378,11 +1386,11 @@ void rs232Fuji::insert_boot_device(uint8_t d)
     switch (d)
     {
     case 0:
-        fBoot = fnSPIFFS.file_open(config_atr);
+        fBoot = fsFlash.file_open(config_atr);
         _bootDisk.mount(fBoot, config_atr, 0);
         break;
     case 1:
-        fBoot = fnSPIFFS.file_open(mount_all_atr);
+        fBoot = fsFlash.file_open(mount_all_atr);
         _bootDisk.mount(fBoot, mount_all_atr, 0);
         break;
     }
@@ -1623,4 +1631,4 @@ std::string rs232Fuji::get_host_prefix(int host_slot)
     return _fnHosts[host_slot].get_prefix();
 }
 
-#endif /* BUILD_ATARI */
+#endif /* BUILD_RS232 */
