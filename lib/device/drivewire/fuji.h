@@ -58,6 +58,10 @@ class drivewireFuji : public virtualDevice
 private:
     systemBus *_drivewire_bus = nullptr;
 
+    bool wifiScanStarted = false;
+
+    char dirpath[256];
+
     fujiHost _fnHosts[MAX_HOSTS];
 
     fujiDisk _fnDisks[MAX_DISK_DEVICES];
