@@ -5,11 +5,14 @@
 # switches with values must be specified separately.
 # typical usage:
 #   ./build.sh -h           # display help for this script!
-#   ./build.sh -c           # clean
-#   ./build.sh -bx          # build, but don't output the dependency graph spam
+#   ./build.sh -cb          # clean and build firmware
 #   ./build.sh -m           # monitor device
-#   ./build.sh -ux          # upload image, no spam in build
-#   ./build.sh -fx          # upload file system, no spam in build
+#   ./build.sh -u           # upload image
+#   ./build.sh -f           # upload file system
+
+# This beast finds the directory the build.sh script is in, no matter where it's run from
+# which should be the root of the project
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 BUILD_ALL=0
 RUN_BUILD=0
@@ -25,7 +28,24 @@ UPLOAD_FS=0
 DEV_MODE=0
 ZIP_MODE=0
 AUTOCLEAN=1
-INI_FILE="platformio.ini"
+INI_FILE="${SCRIPT_DIR}/platformio.ini"
+
+OS_TYPE=$(uname)
+if [ "$OS_TYPE" = "Linux" ]; then
+    echo "Running on a Linux system. Wise choice."
+elif [ "$OS_TYPE" = "Darwin" ]; then
+    echo "Running on a Macintosh system."
+    BINARY_PATH="/usr/local/opt/gnu-sed/libexec/gnubin/sed"
+    if [ -f "$BINARY_PATH" ]; then
+      echo "Proper sed Binary file found: $BINARY_PATH"
+    else
+      echo "gnu sed Binary file not found; please install via brew install gnu-sed and re-run"
+      exit 1
+    fi
+else
+    echo "Running on an unidentified system."
+fi
+
 
 # This beast finds the directory the build.sh script is in, no matter where it's run from
 # which should be the root of the project
@@ -171,12 +191,12 @@ if [ -n "${TARGET_NAME}" ] ; then
 fi
 
 DEV_MODE_ARG=""
-if [ ${DEV_MODE} -eq 1 ]; then
+if [ ${DEV_MODE} -eq 1 ] ; then
   DEV_MODE_ARG="-a dev"
 fi
 
 if [ ${DO_CLEAN} -eq 1 ] ; then
-  pio run -t clean ${ENV_ARG}
+  pio run -c $INI_FILE -t clean ${ENV_ARG}
 fi
 
 AUTOCLEAN_ARG=""
@@ -188,14 +208,14 @@ if [ ${RUN_BUILD} -eq 1 ] ; then
   pio run -c $INI_FILE ${DEV_MODE_ARG} $ENV_ARG $TARGET_ARG $AUTOCLEAN_ARG 2>&1
 fi
 
-if [ ${UPLOAD_FS} -eq 1 ]; then
+if [ ${UPLOAD_FS} -eq 1 ] ; then
   pio run -c $INI_FILE ${DEV_MODE_ARG} -t uploadfs 2>&1
 fi
 
-if [ ${UPLOAD_IMAGE} -eq 1 ]; then
+if [ ${UPLOAD_IMAGE} -eq 1 ] ; then
   pio run -c $INI_FILE ${DEV_MODE_ARG} -t upload 2>&1
 fi
 
-if [ ${SHOW_MONITOR} -eq 1 ]; then
+if [ ${SHOW_MONITOR} -eq 1 ] ; then
   pio device monitor 2>&1
 fi
